@@ -1,0 +1,28 @@
+-----------------------------------------
+✅ __str__ — User-friendly representation
+-----------------------------------------
+
+    def __str__(self):
+        return f"{self.name} ({self.email})"
+
+Purpose:
+    
+    - Display to end users
+    - UI / print output
+
+------------------
+Where it is used?
+------------------
+
+    print(obj)    # → __str__
+    str(obj)      # → __str__
+
+-------------------------------
+🔁 Important fallback behavior
+-------------------------------
+
+If __str__ is not defined:
+
+    print(obj) → __repr__
+
+👉 So __repr__ is the fallback.

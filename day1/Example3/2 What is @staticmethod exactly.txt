@@ -1,0 +1,129 @@
+------------------------------
+What is @staticmethod exactly?
+------------------------------
+
+    class MathUtils:
+        @staticmethod
+        def add(a, b):
+            return a + b
+
+Key properties:
+
+    ❌ No self → doesn’t access instance
+    ❌ No cls → doesn’t access class
+    ✅ Just a namespaced function inside a class
+    
+---------------
+How it behaves
+---------------
+
+    MathUtils.add(2, 3)   # 5 ✅
+
+You can also call it via instance:
+
+    m = MathUtils()
+    m.add(2, 3)          # 5 ✅ (but not recommended stylistically)
+
+-------------------------------    
+Why use @staticmethod at all?
+-------------------------------
+
+1. Logical grouping (namespacing)
+---------------------------------
+
+Instead of a free function:
+
+    def add(a, b):
+        return a + b
+
+You group it:
+
+    MathUtils.add(2, 3)
+
+👉 Improves code organization and readability
+
+
+2. Signals intent clearly
+-------------------------------
+
+When someone reads:
+
+    @staticmethod
+
+They immediately know:
+
+    “This method does not depend on instance or class state.”
+
+
+3. Avoid accidental coupling
+-------------------------------
+
+If you used a normal method:
+
+    def add(self, a, b):
+
+Now it suggests dependency on instance — which is misleading.
+
+-------------------------------
+When NOT to use @staticmethod
+-------------------------------
+
+If your method needs:
+
+Instance data → use normal method
+
+    def get_name(self):
+
+Class data → use @classmethod
+
+    @classmethod
+    def get_count(cls):
+
+-------------------------------------------------    
+Static vs Class vs Instance (quick contrast)
+-------------------------------------------------
+
+    | Type         | First Arg | Access      | Use case                |
+    | ------------ | --------- | ----------- | ----------------------- |
+    | Instance     | `self`    | object data | object behavior         |
+    | Classmethod  | `cls`     | class state | factories, shared logic |
+    | Staticmethod | none      | nothing     | utility/helper          |
+
+----------------------------
+Subtle design insight
+----------------------------
+
+If your static method is completely generic, like:
+
+    def add(a, b):
+
+👉 It may not belong in a class at all.
+
+Better as:
+
+    - module-level function, OR
+    - inside class only if tightly related
+
+----------------------------
+Better real-world example
+----------------------------
+
+    class UserValidator:
+
+        @staticmethod
+        def is_valid_email(email):
+            return "@" in email
+
+✔ Makes sense because:
+
+    - Related to User
+    - Doesn’t need instance/class state
+
+----------------------------
+Mental model
+----------------------------
+
+Think of @staticmethod as:
+
+    “This function belongs conceptually to this class, 
+     but technically depends on nothing.”

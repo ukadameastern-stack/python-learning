@@ -1,0 +1,105 @@
+-------------------------
+@classmethod → Why used?
+-------------------------
+
+    @classmethod
+    def get_count(cls):
+        return cls.count
+
+Key idea:
+    - cls refers to the class itself (not instance)
+    - Works even with inheritance
+
+-----------------------------
+Why not use a normal method?
+-----------------------------
+
+If you wrote:
+
+    def get_count(self):
+        return self.count
+
+Problems:
+
+    - Requires an instance
+    - Conceptually wrong (count belongs to class, not object)
+
+---------------------------
+Why not use @staticmethod?
+---------------------------
+
+You could, but:
+
+    @staticmethod
+    def get_count():
+        return User.count
+        
+❌ Hardcoded class name
+❌ Breaks inheritance flexibility 
+
+----------------------------------
+Correct advantage of @classmethod
+----------------------------------
+
+    class User:
+        count = 0   # class variable (shared across all instances)
+
+        def __init__(self):
+            User.count += 1   # increment on every object creation
+
+        @classmethod
+        def get_count(cls):
+            return cls.count
+
+    class Admin(User):
+        count = 0
+
+    a1 = Admin()
+    a2 = Admin()
+
+    print(Admin.get_count())  # 2 ✅
+    print(User.get_count())   # separate counter
+
+👉 Because cls dynamically refers to the calling class.
+
+
+--------------------------------
+Important nuance (design detail)
+--------------------------------
+
+Your current code uses:
+
+    User.count += 1
+
+This always updates User.count, even for subclasses.
+
+Better version (polymorphic-friendly):
+
+    def __init__(self):
+        type(self).count += 1
+
+or:
+
+    def __init__(self):
+        self.__class__.count += 1
+
+Now:
+
+    - User tracks its own count
+    - Admin tracks its own count
+
+--------------------------    
+Final mental model
+--------------------------
+
+    - Class variable (count) → shared state
+    - __init__ → updates that state
+    - @classmethod → controlled access to that state
+
+------------------------------
+When do you use this pattern?
+------------------------------
+
+    - Tracking number of instances
+    - Maintaining shared configuration
+    - Factory methods (advanced use of @classmethod)

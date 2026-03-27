@@ -1,0 +1,99 @@
+-------------------------------
+✅ __eq__ — Logical equality
+-------------------------------
+
+    def __eq__(self, other):
+        return self.email == other.email
+Purpose:
+
+    - Define meaning of ==
+    - Compare value, not ident
+
+-------------------------------------------------
+⚠️ Critical improvement (must handle type safely)
+-------------------------------------------------
+
+Your version can break:
+
+    user == "abc"   # ❌ AttributeError
+
+Correct implementation:
+
+    def __eq__(self, other):
+        if not isinstance(other, User):
+            return NotImplemented
+        return self.email == other.email
+
+Why NotImplemented?
+
+    - Lets Python try reverse comparison
+    - Prevents incorrect assumptions
+    - Standard protocol for operator overloading
+
+-------------------------------------------------
+⚠️ Subtle but important: __eq__ affects hashing
+-------------------------------------------------
+
+If you override __eq__, you should also consider __hash__.
+
+Otherwise:
+
+    set([user1, user2])  # ❌ may break or behave inconsistently
+
+Safe approach:
+
+    def __hash__(self):
+        return hash(self.email)
+
+👉 Only if object is immutable in that field
+
+------------------------
+🧠 Identity vs Equality
+------------------------
+
+u1 = User("A", "a@mail.com")
+u2 = User("A", "a@mail.com")
+
+u1 == u2   # True ✅ (__eq__)
+u1 is u2   # False ❌ (different objects)
+
+--------------------------
+✅ Clean Combined Example
+--------------------------
+
+    class User:
+        def __init__(self, name, email):
+            self.name = name
+            self.email = email
+
+        def __repr__(self):
+            return f"User(name={self.name!r}, email={self.email!r})"
+
+        def __str__(self):
+            return f"{self.name} ({self.email})"
+
+        def __eq__(self, other):
+            if not isinstance(other, User):
+                return NotImplemented
+            return self.email == other.email
+
+        def __hash__(self):
+            return hash(self.email)
+
+---------------------------            
+🔥 Interview-level summary
+---------------------------
+
+    __repr__ → developer/debug (unambiguous)
+    __str__ → user-friendly display
+    __eq__ → logical equality (value-based)
+    __hash__ → required for hash collections 
+               if __eq__ is overridden
+
+---------------------------
+🧠 Mental model
+---------------------------
+
+    __repr__ → "What is this object (exactly)?"
+    __str__ → "How should this look to a user?"
+    __eq__ → "When are two objects considered the same?"    

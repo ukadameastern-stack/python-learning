@@ -1,0 +1,224 @@
+Abstract Base Classes (ABCs) in Python are part of the abc module 
+and are used to define formal interfaces for classes. 
+They enforce that derived classes implement specific methods.
+
+This is critical in large-scale systems (e.g., backend services, 
+frameworks like Django/FastAPI) where you want strict contracts 
+between components.
+
+---------------------------------
+🔷 1. Why Abstract Base Classes?
+---------------------------------
+
+Without ABC:
+
+    - No guarantee child classes implement required methods
+    - Leads to runtime errors
+
+With ABC:
+
+    - Enforces structure at class level
+    - Prevents incomplete implementations
+
+---------------------------------
+🔷 2. Core Components
+---------------------------------
+
+✅ abc.ABC
+
+    Base class for defining abstract classes
+
+✅ @abstractmethod
+
+    Decorator to declare methods that must be implemented
+
+---------------------------------
+🔷 3. Basic Example
+---------------------------------
+
+    from abc import ABC, abstractmethod
+
+    class Animal(ABC):  # Abstract Base Class
+
+        @abstractmethod
+        def sound(self):
+            pass
+
+👉 This class cannot be instantiated
+
+    a = Animal()  # ❌ Error
+
+---------------------------------    
+🔷 4. Implementing Child Class
+---------------------------------
+
+    class Dog(Animal):
+        def sound(self):
+            return "Bark"
+
+    d = Dog()
+    print(d.sound())
+
+👉 Output:
+
+    Bark
+
+---------------------------------------    
+🔷 5. What Happens if Not Implemented?
+---------------------------------------
+
+    class Cat(Animal):
+        pass
+
+    c = Cat()  # ❌ TypeError
+
+👉 Error:
+
+    Can't instantiate abstract class Cat with abstract method sound
+
+✔️ This is enforcement — the main purpose of ABC.
+
+-------------------------------------------
+🔷 6. Abstract Methods with Implementation
+-------------------------------------------
+
+Abstract methods can have a body, but must still be overridden.
+
+    class Shape(ABC):
+
+        @abstractmethod
+        def area(self):
+            print("Calculating area")
+
+-------------------------------------------
+🔷 7. Abstract Properties
+-------------------------------------------
+
+    from abc import ABC, abstractmethod
+
+    class Person(ABC):
+
+        @property
+        @abstractmethod
+        def name(self):
+            pass
+
+-------------------------------------------           
+🔷 8. Abstract Class with Constructor
+-------------------------------------------
+
+Yes, ABCs can have constructors:
+
+    class Vehicle(ABC):
+
+        def __init__(self, brand):
+            self.brand = brand
+
+        @abstractmethod
+        def start(self):
+            pass
+
+-------------------------------------------            
+🔷 9. Real-World Use Case (Backend Design)
+-------------------------------------------
+
+Example: Payment System
+
+    from abc import ABC, abstractmethod
+
+    class Payment(ABC):
+
+        @abstractmethod
+        def pay(self, amount):
+            pass
+
+
+    class CreditCardPayment(Payment):
+        def pay(self, amount):
+            print(f"Paid {amount} using Credit Card")
+
+
+    class UpiPayment(Payment):
+        def pay(self, amount):
+            print(f"Paid {amount} using UPI")
+
+👉 Usage:
+
+    def process_payment(payment: Payment):
+        payment.pay(1000)
+
+    process_payment(UpiPayment())
+
+✔️ This follows Dependency Injection + Interface Design
+
+---------------------------------------
+🔷 10. Key Concepts (Interview Focus)
+---------------------------------------
+
+🔸 1. Cannot instantiate abstract class
+
+    Animal()  # ❌
+
+🔸 2. Must implement all abstract methods
+
+    Otherwise → TypeError
+
+🔸 3. Supports multiple inheritance
+
+    class A(ABC):
+        @abstractmethod
+        def test(self):
+            pass
+
+    class B:
+        pass
+
+    class C(A, B):
+        def test(self):
+            print("Done")
+
+---------------------------------------
+🔷 11. ABC vs Normal Class
+---------------------------------------
+    | Feature            | Normal Class | Abstract Class     |
+    | ------------------ | ------------ | ------------------ |
+    | Instantiation      | ✅ Yes       | ❌ No              |
+    | Method enforcement | ❌ No        | ✅ Yes             |
+    | Use case           | General      | Interface/Contract |
+
+------------------------------------------------
+🔷 12. Advanced: Registering Virtual Subclasses
+------------------------------------------------
+
+    class MyABC(ABC):
+        pass
+
+    class MyClass:
+        pass
+
+    MyABC.register(MyClass)
+
+    print(issubclass(MyClass, MyABC))  # True
+
+👉 Useful when you want duck typing with formal recognition
+
+--------------------------
+🔷 13. When to Use ABC?
+--------------------------
+
+Use ABC when:
+
+✔ Designing frameworks
+✔ Building APIs (like FastAPI services)
+✔ Enforcing strict contracts
+✔ Multiple developers working on same system
+✔ Plugin-based architecture
+
+--------------------------
+🔷 Summary
+--------------------------
+
+ABC → Base class for abstract classes
+@abstractmethod → Forces implementation
+Cannot instantiate abstract class
+Used for clean architecture & scalable design

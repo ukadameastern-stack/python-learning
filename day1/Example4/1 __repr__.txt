@@ -1,0 +1,30 @@
+--------------------------------------------
+✅ __repr__ — Unambiguous, developer-facing
+--------------------------------------------
+
+    def __repr__(self):
+        return f"User(name={self.name}, email={self.email})"
+
+Purpose:
+
+    - Debugging
+    - Logging
+    - REPL / console inspection
+
+Key principle:
+
+    Should ideally be unambiguous and, if possible, re-creatable
+
+Better version:
+
+    def __repr__(self):
+        return f"User(name={self.name!r}, email={self.email!r})"
+
+👉 !r ensures proper quoting ('value')
+
+--------------------
+Where it is used?
+--------------------
+
+obj           # console / REPL → __repr__
+repr(obj)     # explicit → __repr__

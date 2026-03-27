@@ -1,0 +1,94 @@
+----------------
+🔑 Short Answer
+----------------
+
+Python does NOT enforce type hints at runtime.
+
+So this is perfectly valid at runtime:
+
+    def get_user(self, name1: Optional[str] = None) -> int:
+        return name1 or "Guest"
+
+Even though:
+
+    - You declared -> int
+    - You are returning a string
+
+👉 Python will not throw any error.
+
+----------------
+🧠 Why?
+----------------
+
+Type hints (Optional, int, str, etc.) are:
+
+Metadata only
+Used by:
+    
+    - IDEs (PyCharm, VS Code)
+    - Static type checkers like mypy
+    - Linters
+
+But the Python interpreter itself ignores them completely.
+
+--------------------------------------
+🔍 What actually happens at runtime
+--------------------------------------
+
+    return name1 or "Guest"
+
+- If name1 is None → returns "Guest" (string)
+- No validation is performed against -> int
+
+So:
+
+    print(type(u2.get_user()))
+
+👉 Output:
+
+    <class 'str'>
+
+--------------------------------------    
+⚠️ When WOULD you get an error?
+--------------------------------------
+
+Only if you explicitly enforce types using tools.
+
+✅ Example with mypy
+
+Run:
+
+    mypy your_file.py
+
+You’ll get:
+
+    error: Incompatible return value type (got "str", expected "int")
+
+--------------------------------------
+✅ Best Practice
+--------------------------------------
+
+Fix your annotation:
+
+    def get_user(self, name1: Optional[str] = None) -> str:
+        return name1 or "Guest"
+
+OR enforce logic:
+
+    def get_user(self, name1: Optional[str] = None) -> int:
+        return len(name1) if name1 else 0
+
+--------------------------------------        
+🧠 Key Insight (Important)
+--------------------------------------
+
+Python typing is gradual typing, not strict typing like:
+
+    - Java
+    - Go
+    - TypeScript (strict mode)
+
+👉 Meaning:
+
+    - You can ignore types
+    - But tools exist to enforce them when needed

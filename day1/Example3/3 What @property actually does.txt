@@ -1,0 +1,110 @@
+--------------------
+Corrected Example
+--------------------
+
+    class User:
+        def __init__(self, age):
+            self._age = age   # internal (protected) attribute
+
+        @property
+        def age(self):
+            return self._age
+
+----------------------------            
+What @property actually does
+----------------------------
+
+It lets you call a method like an attribute:
+
+    u = User(25)
+
+    print(u.age)   # ✅ calls method internally
+
+Instead of:
+
+    print(u.get_age())  # ❌ not needed
+    
+Why this matters (real purpose)
+1. Encapsulation (controlled access)
+
+You hide internal data (_age) and expose a clean interface (age).
+
+2. Add logic without changing API
+@property
+def age(self):
+    if self._age < 0:
+        return 0
+    return self._age
+
+User still does:
+
+u.age
+
+👉 No change in usage, but logic is enforced.
+
+3. Read-only attribute
+
+If you don’t define a setter:
+
+u.age = 30   # ❌ AttributeError
+Adding a setter (important)
+class User:
+    def __init__(self, age):
+        self._age = age
+
+    @property
+    def age(self):
+        return self._age
+
+    @age.setter
+    def age(self, value):
+        if value < 0:
+            raise ValueError("Age cannot be negative")
+        self._age = value
+
+Now:
+
+u = User(25)
+u.age = 30     # ✅
+u.age = -5     # ❌ error
+Why not access _age directly?
+
+You can, but:
+
+u._age = -100   # ❌ breaks validation
+
+👉 Convention: _age = internal use only
+
+Common mistake (your snippet had it)
+return self._ag   # ❌ typo
+
+Must be:
+
+return self._age  # ✅
+When to use @property
+
+Use it when:
+
+You want attribute-style API
+You need validation / transformation
+You want to protect internal state
+You may change implementation later without breaking code
+Mental model
+
+@property = “method disguised as a field”
+
+Advanced insight (interview-level)
+
+@property enables backward-compatible refactoring.
+
+You can start with:
+
+self.age = 25
+
+Later change to:
+
+@property
+def age(self):
+    return compute_age()
+
+👉 No external code breaks — huge design advantage.

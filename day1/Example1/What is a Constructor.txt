@@ -1,0 +1,116 @@
+-----------------------------
+1. What is a Constructor?
+-----------------------------
+
+A constructor is automatically called when you create an object of a class. 
+It is mainly used to:
+
+    - Assign initial values to object attributes
+    - Perform setup logic
+
+-----------------------------
+🔹 2. Default Constructor
+-----------------------------
+
+A constructor with no parameters (other than self).
+
+    class Person:
+        def __init__(self):
+            print("Default constructor called")
+
+    p = Person()
+
+👉 Output:
+
+    Default constructor called
+
+--------------------------------
+🔹 3. Parameterized Constructor
+--------------------------------
+
+Takes arguments to initialize object properties.
+
+    class Person:
+        def __init__(self, name, age):
+            self.name = name
+            self.age = age
+
+    p1 = Person("Uday", 25)
+
+    print(p1.name)  # Uday
+    print(p1.age)   # 25
+
+--------------------------------------    
+🔹 4. Constructor with Default Values
+--------------------------------------
+
+    class Person:
+        def __init__(self, name="Guest", age=0):
+            self.name = name
+            self.age = age
+
+    p1 = Person()
+    p2 = Person("Uday", 25)
+
+    print(p1.name)  # Guest
+    print(p2.name)  # Uday
+
+---------------------------------------
+🔹 5. Multiple Constructors in Python?
+---------------------------------------
+
+❌ Python does not support method overloading like Java.
+
+✔️ Workarounds:
+
+    Default arguments
+    *args and **kwargs
+
+    class Person:
+        def __init__(self, *args):
+            if len(args) == 2:
+                self.name = args[0]
+                self.age = args[1]
+            elif len(args) == 1:
+                self.name = args[0]
+                self.age = 0
+            else:
+                self.name = "Guest"
+                self.age = 0
+
+--------------------------------------
+🔹 6. Key Points
+--------------------------------------
+
+    - __init__ is not exactly a constructor, it’s an initializer
+    - The actual object creation happens in __new__
+    - self refers to the current instance (like this in Java)
+
+--------------------------------------
+🔹 7. Advanced: __new__ vs __init__
+--------------------------------------
+    class Demo:
+        def __new__(cls):
+            print("Creating instance")
+            return super().__new__(cls)
+
+        def __init__(self):
+            print("Initializing instance")
+
+    d = Demo()
+
+👉 Output:
+
+    Creating instance
+    Initializing instance
+
+--------------------------------------
+🔹 Summary
+--------------------------------------
+
+| Feature         | Python Approach |
+| --------------- | --------------- |
+| Constructor     | `__init__()`    |
+| Object Creation | `__new__()`     |
+| Overloading     | Not supported   |
+| Access instance | `self`          |

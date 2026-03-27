@@ -1,0 +1,140 @@
+------------------------------
+What is an abstract property?
+------------------------------
+
+This:
+
+    from abc import ABC, abstractmethod
+
+    class Person(ABC):
+
+        @property
+        @abstractmethod
+        def name(self):
+            pass
+
+means:
+
+    Any subclass must implement name as a property, 
+    not a normal method.
+
+--------------------------------------------
+Why not just use a normal abstract method?
+--------------------------------------------
+
+    Because this enforces attribute-style access, not method calls.
+
+Without property:
+
+    p.name()   # method call
+
+With @property:
+
+    p.name     # attribute access ✅
+
+This is useful when you want your API to feel like data, 
+not behavior.
+
+--------------------------------------------
+How subclass must implement it
+--------------------------------------------
+
+    class Employee(Person):
+
+        def __init__(self, name):
+            self._name = name
+
+        @property
+        def name(self):
+            return self._name
+
+Now:
+
+    e = Employee("Uday")
+    print(e.name)   # ✅ works
+    
+What happens if you don’t implement it?
+class Employee(Person):
+    pass
+
+e = Employee()  # ❌ TypeError
+
+Because name is still abstract.
+
+Why is this useful? (Real purpose)
+1. Enforce a contract for attributes
+
+You guarantee every subclass has a name.
+
+Example:
+
+def print_name(person: Person):
+    print(person.name)  # safe, always exists
+2. Allow dynamic computation behind attribute
+
+Even though it looks like a variable, it can compute:
+
+class User(Person):
+
+    @property
+    def name(self):
+        return "Computed Name"
+3. Enable read-only interfaces
+
+No setter → cannot modify directly.
+
+Advanced: Abstract property with setter
+
+You can enforce both getter and setter:
+
+class Person(ABC):
+
+    @property
+    @abstractmethod
+    def name(self):
+        pass
+
+    @name.setter
+    @abstractmethod
+    def name(self, value):
+        pass
+
+Subclass:
+
+class Employee(Person):
+
+    def __init__(self, name):
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+Important rule (interview-level clarity)
+
+👉 Order matters:
+
+@property
+@abstractmethod
+def name(self):
+
+NOT:
+
+@abstractmethod
+@property   # ❌ wrong
+Mental model
+
+Think of abstract property as:
+
+“Every subclass must expose this as a field, but how it gets the value is up to them.”
+
+When should you use it?
+
+Use abstract properties when:
+
+You want a clean API (obj.name instead of obj.get_name())
+You’re designing framework/base classes
+You want to enforce data-like interface consistency

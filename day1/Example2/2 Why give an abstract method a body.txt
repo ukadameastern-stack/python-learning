@@ -1,0 +1,125 @@
+Good question — this is where Python’s abc design is more flexible 
+than many strictly abstract OOP languages.
+
+Key point
+
+Even if an @abstractmethod has a body, the class is still abstract 
+and cannot be instantiated until the method is overridden.
+
+So yes — subclasses must override it.
+But the body is still useful.
+
+------------------------------------
+Why give an abstract method a body?
+------------------------------------
+
+1. Provide a default/shared implementation (partial logic)
+----------------------------------------------------------
+
+You can put common logic in the base class and 
+let subclasses extend it.
+
+    from abc import ABC, abstractmethod
+
+    class Shape(ABC):
+
+        @abstractmethod
+        def area(self):
+            print("Common pre-processing for area")
+
+Subclass:
+
+    class Circle(Shape):
+        def area(self):
+            super().area()  # reuse shared logic
+            print("Circle-specific area calculation")
+
+👉 This avoids duplication of common steps.
+
+----------------------------------------------------------
+2. Act as a template method (hook pattern)
+----------------------------------------------------------
+
+You define a structure, and subclasses fill in the specifics.
+
+    class Shape(ABC):
+
+        @abstractmethod
+        def area(self):
+            print("Step 1: Validate inputs")
+            print("Step 2: Compute area (must override)")
+
+Subclasses override but may call super() to reuse steps.
+
+----------------------------------------------------------
+3. Enforce overriding while still giving optional reuse
+----------------------------------------------------------
+
+Even if a default exists, Python forces subclasses 
+to consciously override.
+
+This is different from normal methods:
+
+    - Normal method → subclass may override
+    - Abstract method → subclass must override
+
+----------------------------------------------------------
+4. Provide a fallback or debugging behavior
+----------------------------------------------------------
+
+Sometimes used for logging, warnings, or safe defaults:
+
+    class Shape(ABC):
+
+        @abstractmethod
+        def area(self):
+            print("Warning: Default area called")
+
+------------------
+Important nuance
+------------------
+
+Even if you define:
+
+    class Shape(ABC):
+        @abstractmethod
+        def area(self):
+            print("Calculating area")
+
+This will still fail:
+
+    s = Shape()  # ❌ TypeError
+
+And this will also fail:
+
+    class Circle(Shape):
+        pass
+
+    c = Circle()  # ❌ still abstract
+
+You must override:
+
+    class Circle(Shape):
+        def area(self):
+            super().area()
+            return 3.14 * 5 * 5
+
+------------------------------------            
+When should you use this pattern?
+------------------------------------
+
+Use abstract method with body when:
+
+    - You want enforced overriding + shared logic
+    - You’re implementing a framework-like base class
+    - You want to define a processing pipeline with hooks
+
+------------------    
+Mental model
+------------------
+
+Think of it as:
+
+    “You are forced to implement this method, 
+     but here’s some reusable base behavior 
+     if you want it.”

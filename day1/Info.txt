@@ -1,0 +1,19 @@
+------------------------------------
+🔥 Production Insight (Important)
+------------------------------------
+
+✔ When to use what:
+
+| Concept         | Use Case                           |
+| --------------- | ---------------------------------- |
+| `__init__`      | Initialize object state            |
+| `self`          | Access instance data               |
+| Inheritance     | Code reuse / polymorphism          |
+| `super()`       | Clean parent calls                 |
+| `ABC`           | Enforce structure in large systems |
+| `@classmethod`  | Factory methods / counters         |
+| `@staticmethod` | Utility logic                      |
+| `@property`     | Controlled attribute access        |
+| `__repr__`      | Debugging                          |
+| `__str__`       | UI/display                         |
+| `__eq__`        | Business-level comparison          |
