@@ -1,0 +1,9 @@
+https://docs.djangoproject.com/en/6.0/topics/db/models/
+
+https://docs.djangoproject.com/en/6.0/ref/models/fields/
+
+https://docs.djangoproject.com/en/6.0/ref/models/querysets/
+
+https://docs.djangoproject.com/en/6.0/topics/migrations/
+
+https://docs.djangoproject.com/en/6.0/ref/contrib/admin/

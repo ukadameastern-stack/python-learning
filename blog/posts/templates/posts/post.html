@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}My Post Details{% endblock %}
+
+{% block content %}
+
+    {% if post %}
+        <div class="post">
+            <h2>{{ post.id }}. {{ post.post_title }}</h2>
+            <p>{{ post.post_content }}</p>
+            <p>{{ post.post_auther }} ({{ post.published_date }})</p>
+        </div>
+    {% else %}
+        <h1>No post available</h1>
+    {% endif %}
+
+    <p><a href="/post/home/">Back</a></p>
+
+{% endblock %}

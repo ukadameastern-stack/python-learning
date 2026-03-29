@@ -1,0 +1,109 @@
+🔹 1. Exact Match (Default)
+
+    Post.objects.filter(post_auther="Uday")
+
+Same as:
+
+    Post.objects.filter(post_auther__exact="Uday")
+
+🔹 2. Case-Insensitive Match
+
+    Post.objects.filter(post_auther__iexact="uday")
+
+🔹 3. Contains (LIKE %value%)
+
+    Post.objects.filter(post_title__contains="PHP")
+
+Case-insensitive:
+
+    Post.objects.filter(post_title__icontains="php")
+
+🔹 4. Starts With / Ends With
+
+Starts with:
+
+    Post.objects.filter(post_title__startswith="Intro")
+
+Ends with:
+
+    Post.objects.filter(post_title__endswith="language")
+
+Case-insensitive:
+
+    Post.objects.filter(post_title__iendswith="language")
+
+🔹 5. IN Lookup (Multiple Values)
+
+Post.objects.filter(post_auther__in=["Uday", "Admin"])
+
+🔹 6. Comparison Lookups (Numbers/Dates)
+
+Post.objects.filter(id__gt=3)   # greater than
+Post.objects.filter(id__lt=10)  # less than
+Post.objects.filter(id__gte=3)  # >=
+Post.objects.filter(id__lte=10) # <=
+
+🔹 7. Range
+
+Post.objects.filter(id__range=(1, 5))
+
+🔹 8. NULL Checks
+
+Post.objects.filter(post_content__isnull=True)
+
+🔹 9. Date Lookups (Very Useful)
+
+Assuming created_at field:
+
+Post.objects.filter(created_at__year=2026)
+Post.objects.filter(created_at__month=3)
+Post.objects.filter(created_at__day=28)
+
+🔹 10. Regex (Advanced)
+
+Post.objects.filter(post_title__regex=r"^Intro")
+
+🔹 11. Exclude (NOT condition)
+
+Post.objects.exclude(post_auther="Uday")
+
+🔹 12. Multiple Conditions
+
+Post.objects.filter(
+    post_auther="Uday",
+    post_title__icontains="python"
+)
+
+🔹 13. OR Conditions (Q Objects)
+
+from django.db.models import Q
+
+Post.objects.filter(
+    Q(post_auther="Uday") | Q(post_title__icontains="php")
+)
+
+🔹 14. Chaining Filters
+
+Post.objects.filter(post_auther="Uday").filter(id__gt=2)
+
+🔥 Your Specific Example
+
+"title ends with language"
+
+Post.objects.filter(post_title__iendswith="language")
+
+🔹 Mental Model (Important)
+
+field__lookup=value
+
+Examples:
+
+post_title__icontains="django"
+id__gt=5
+created_at__year=2025
+
+🔥 Pro Tips (Interview Level)
+
+filter() → returns QuerySet (never fails)
+get() → returns single object (can raise exception)
+QuerySets are lazy (executed only when needed)
