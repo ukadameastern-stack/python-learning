@@ -38,3 +38,7 @@ https://docs.djangoproject.com/en/6.0/topics/http/middleware/
 
 
 https://docs.djangoproject.com/en/6.0/ref/middleware/
+
+
+
+https://docs.djangoproject.com/en/6.0/topics/http/sessions/

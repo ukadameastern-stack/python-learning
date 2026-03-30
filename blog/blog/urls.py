@@ -22,6 +22,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     #path("post/helloworld", views.helloWorld),
     path("post/", include('posts.urls')),
+    path("session/", include('sessiontut.urls')),
     path("google/", views.google), # Redirect t 3rd party URL
     path("<int:id>/", views.redirect), # Redrect to own application URL
 ]

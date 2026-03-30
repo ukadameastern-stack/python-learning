@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "posts",
     "booking",
+    "sessiontut"
 ]
 
 MIDDLEWARE = [
@@ -132,3 +133,7 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+SESSION_COOKIE_AGE = 100
+SESSION_COOKIE_NAME = "my_session_id"
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
