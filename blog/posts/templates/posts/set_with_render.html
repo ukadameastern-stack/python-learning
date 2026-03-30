@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Cookies with render{% endblock %}
+
+{% block content %}
+    <h1>Cookies with render</h1>
+    <p>Cookies are small pieces of data that are stored on the client's browser. They are used to store information about the user, such as their preferences, login status, and other data
+    <pre>
+        {% for key, value in request.COOKIES.items %}
+        {{ key }}: {{ value }}
+        {% endfor %}
+    </pre>
+     
+
+{% endblock %}

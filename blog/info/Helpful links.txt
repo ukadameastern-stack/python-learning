@@ -14,3 +14,27 @@ https://docs.djangoproject.com/en/6.0/ref/models/querysets/
 https://docs.djangoproject.com/en/6.0/topics/migrations/
 
 https://docs.djangoproject.com/en/6.0/ref/contrib/admin/
+
+
+https://docs.djangoproject.com/en/6.0/ref/request-response/#django.http.HttpRequest.COOKIES
+
+
+
+https://docs.djangoproject.com/en/6.0/ref/request-response/#django.http.HttpResponse.set_cookie
+
+
+
+https://docs.djangoproject.com/en/6.0/ref/request-response/#django.http.HttpResponse.delete_cookie
+
+
+
+https://docs.djangoproject.com/en/6.0/ref/request-response/#django.http.HttpResponse.flush
+
+
+
+
+https://docs.djangoproject.com/en/6.0/topics/http/middleware/
+
+
+
+https://docs.djangoproject.com/en/6.0/ref/middleware/
