@@ -2,6 +2,12 @@
 
 {% block title %}All Post Details{% endblock %}
 
+{% block extra_head %}
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'posts/css/pagination.css' %}">
+
+{% endblock %}
+
 {% block content %}
 
      <!-- {% if posts %}
@@ -18,11 +24,30 @@
 
     {% for post in posts %}
         <div class="post">
-            <h2>{{ forloop.counter }}. {{ post.post_title|upper }}</h2>
+            <h2>{{ post.id }}. {{ post.post_title|upper }}</h2>
             <p>{{ post.post_content|truncatewords:5 }} (<a href="{% url 'posturl' post.id %}">More</a>)</p>
         </div>
     {% empty %}
         <h1>No Posts Available</h1>
     {% endfor %}
 
+    <div class="pagination">
+
+        {% if posts.has_previous %}
+            <a class="page-btn" href="?page={{ posts.previous_page_number }}">Previous</a>
+        {% endif %}
+
+        {% for num in posts.paginator.page_range %}
+            {% if posts.number == num %}
+                <span class="page-btn active">{{ num }}</span>
+            {% else %}
+                <a class="page-btn" href="?page={{ num }}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if posts.has_next %}
+            <a class="page-btn" href="?page={{ posts.next_page_number }}">Next</a>
+        {% endif %}
+
+    </div>
 {% endblock %}

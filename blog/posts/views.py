@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
+from django.core.paginator import Paginator
 
 from posts.models import Post
 
@@ -10,14 +11,18 @@ from posts.models import Post
 
 def home(request):
     posts = Post.objects.all()
-    return render(request, "posts/home.html", {"posts": posts, "username": "uday"})
+    return render(request, "posts/home.html", {"posts": posts})
 
 def list(request):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("loginurl"))
     
-    posts = Post.objects.all()
-    return render(request, "posts/list.html", {"posts": posts, "username": "uday"})
+    posts = Post.objects.all().order_by("-id")
+    paginator = Paginator(posts, 3, orphans=2)  # Show 2 posts per page
+    page_number = request.GET.get('page')
+    posts = paginator.get_page(page_number)
+
+    return render(request, "posts/list.html", {"posts": posts})
 
 def post(request, id):
     if not request.user.is_authenticated:
