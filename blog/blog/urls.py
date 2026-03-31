@@ -25,6 +25,7 @@ urlpatterns = [
     path("post/", include('posts.urls')),
     path("session/", include('sessiontut.urls')),
     path("accounts/", include('accounts.urls')),
+    path("users/", include('django.contrib.auth.urls')), # For login/logout/password management
     path("google/", views.google, name="google"), # Redirect t 3rd party URL
     path("<int:id>/", views.redirect), # Redrect to own application URL
 ]

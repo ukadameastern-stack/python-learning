@@ -42,3 +42,8 @@ https://docs.djangoproject.com/en/6.0/ref/middleware/
 
 
 https://docs.djangoproject.com/en/6.0/topics/http/sessions/
+
+
+https://docs.djangoproject.com/en/6.0/topics/auth/
+
+https://docs.djangoproject.com/en/6.0/topics/auth/default/
