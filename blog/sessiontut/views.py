@@ -4,7 +4,7 @@ from django.shortcuts import render
 # Create your views here.
 
 def set(request):
-    request.session["name"] = "Uday"
+    request.session["name"] = "Udaysinh"
     request.session["last_name"] = "Kadam"
     request.session["country_visited"] = { "Asia": "India", "Europe": "France" }
     # we can this in settings.py as well using SESSION_COOKIE_AGE = 20

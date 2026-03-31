@@ -1,0 +1,115 @@
+To use Redis-backed sessions in Django, 
+you’re essentially swapping the default DB/session storage with a Redis cache 
+backend. This improves latency and scalability 
+(especially under high concurrency).
+
+Below is the clean, production-oriented setup.
+
+--------------------------------------
+✅ 1. Install dependencies
+--------------------------------------
+
+Use the maintained Redis backend:
+
+    pip install django-redis
+
+--------------------------------------
+✅ 2. Configure Redis in settings.py
+--------------------------------------
+
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": "redis://127.0.0.1:6379/1",  # DB 1
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            }
+        }
+    }
+
+--------------------------------------
+✅ 3. Use Redis for sessions
+--------------------------------------
+
+    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+    SESSION_CACHE_ALIAS = "default"
+
+--------------------------------------    
+✅ 4. Optional (recommended settings)
+--------------------------------------
+
+    SESSION_COOKIE_AGE = 60 * 60 * 24  # 1 day
+    SESSION_SAVE_EVERY_REQUEST = False
+    SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+--------------------------------------
+✅ 5. Run Redis server
+--------------------------------------
+
+If Redis is not running:
+
+    redis-server
+
+--------------------------------------    
+✅ 6. Verify it works
+--------------------------------------
+
+In Django shell:
+
+    from django.contrib.sessions.backends.cache import SessionStore
+
+    s = SessionStore()
+    s["user"] = "Uday"
+    s.save()
+
+    print(s.session_key)
+
+Then check Redis:
+
+    redis-cli
+    keys *
+
+You’ll see something like:
+
+    django.contrib.sessions.cache:<session_key>
+
+--------------------------------------------    
+🔐 How this improves security & performance
+--------------------------------------------
+
+🚀 Performance
+    
+    - No DB queries for sessions
+    - O(1) read/write in memory
+
+🔒 Security
+
+    - Sessions stored server-side (not exposed like signed cookies)
+    - Can expire automatically via Redis TTL
+    
+⚠️ Important production considerations
+1. Persistence
+
+Redis is in-memory:
+
+Configure AOF or RDB persistence if needed
+2. Eviction policy
+
+Set in Redis config:
+
+maxmemory-policy allkeys-lru
+3. Use separate DB
+redis://127.0.0.1:6379/1
+
+Avoid mixing with cache or queues.
+
+🔁 Alternative (more robust)
+
+Instead of pure cache backend:
+
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+
+👉 This gives:
+
+Redis (fast access)
+DB fallback (durability)
