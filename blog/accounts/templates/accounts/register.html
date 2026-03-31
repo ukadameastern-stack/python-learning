@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Register Page{% endblock %}
+{% block extra_head %}
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'accounts/css/form.css' %}">
+{% endblock %}
+
+{% block content %}
+    <h1>Register Page</h1>
+    {{ form.non_field_errors }}
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="form-group">
+                {{ field.label_tag }}
+                {{ field }}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Register</button>
+    </form>
+     
+
+{% endblock %}

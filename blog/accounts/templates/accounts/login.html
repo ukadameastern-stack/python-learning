@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Login Page{% endblock %}
+{% block extra_head %}
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'accounts/css/form.css' %}">
+{% endblock %}
+
+{% block content %}
+    <h1>Login Page</h1>
+    {% if messages %}
+        {% for message in messages %}
+            <p class="alert alert-success" role="alert">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+        {{ form.non_field_errors }}
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="form-group">
+               <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {{ field.errors }}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+
+     
+
+{% endblock %}

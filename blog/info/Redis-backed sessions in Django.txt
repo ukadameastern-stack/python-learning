@@ -86,24 +86,33 @@ You’ll see something like:
 
     - Sessions stored server-side (not exposed like signed cookies)
     - Can expire automatically via Redis TTL
-    
+
+--------------------------------------------    
 ⚠️ Important production considerations
+--------------------------------------------
+
 1. Persistence
 
-Redis is in-memory:
+    Redis is in-memory:
 
-Configure AOF or RDB persistence if needed
+        Configure AOF or RDB persistence if needed
+
 2. Eviction policy
 
-Set in Redis config:
+    Set in Redis config:
 
-maxmemory-policy allkeys-lru
+        maxmemory-policy allkeys-lru
+
+
 3. Use separate DB
-redis://127.0.0.1:6379/1
 
-Avoid mixing with cache or queues.
+    redis://127.0.0.1:6379/1
 
+    Avoid mixing with cache or queues.
+ 
+--------------------------------------------
 🔁 Alternative (more robust)
+--------------------------------------------
 
 Instead of pure cache backend:
 

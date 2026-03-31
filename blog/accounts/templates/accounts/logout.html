@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Login Logout{% endblock %}
+{% block extra_head %}
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'accounts/css/form.css' %}">
+{% endblock %}
+
+{% block content %}
+    <h1>Logout Page</h1>
+    {% if messages %}
+        {% for message in messages %}
+            <p class="alert alert-success" role="alert">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    <p>You have been logged out successfully.</p>
+    <a href="{% url 'loginurl' %}" class="btn btn-primary">Login Again</a>
+
+     
+
+{% endblock %}

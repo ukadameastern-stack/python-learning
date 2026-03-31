@@ -1,5 +1,15 @@
 <nav>
-    <a href="{% url 'homeurl' %}">Home</a>
-    <a href="/posts">Posts</a>
-    <a href="/about">About</a>
+    <a href="{% url 'homeurl' %}">Home</a> 
+    {% if user.is_authenticated %}
+        <a href="{% url 'allposturl' %}">Posts</a> 
+    {% endif %}
+    <a href="{% url 'google' %}">Google</a> 
+    {% if user.is_authenticated %}
+        <a href="{% url 'logouturl' %}">
+            Logout <span class="me-2">👤</span>{{ user.username|capfirst }}
+        </a> 
+    {% else %}
+        <a href="{% url 'loginurl' %}">Login</a>
+        <a href="{% url 'registerurl' %}">Register</a> 
+    {% endif %}
 </nav>

@@ -1,28 +1,17 @@
 {% extends 'base.html' %}
 
-{% block title %}All Post Details{% endblock %}
+{% block title %}Welcome to My Blog{% endblock %}
 
 {% block content %}
 
-     <!-- {% if posts %}
-        {% for post in posts %}
-            <div class="post">
-                <h2>{{ post.title }}</h2>
-                <p>{{ post.content }}</p>
-            </div>
-        {% endfor %}
-    {% else %}
-        <h1> No posts available</h1>
-    {% endif %}-->
-    <h1>{{ username|capfirst|truncatechars:4 }}</h1>
-
-    {% for post in posts %}
-        <div class="post">
-            <h2>{{ forloop.counter }}. {{ post.post_title|upper }}</h2>
-            <p>{{ post.post_content|truncatewords:5 }} (<a href="{% url 'posturl' post.id %}">More</a>)</p>
-        </div>
-    {% empty %}
-        <h1>No Posts Available</h1>
-    {% endfor %}
+     <section class="text-center py-5 bg-light rounded">
+    <div class="container">
+        <h1 class="display-4 fw-bold">Welcome to My Blog</h1>
+        <p class="lead mt-3">
+            Explore articles on Django, Python, and modern web development.
+        </p>
+        <a href="{% url 'allposturl' %}" class="btn btn-primary btn-lg mt-3">Explore Posts</a>
+    </div>
+</section>
 
 {% endblock %}

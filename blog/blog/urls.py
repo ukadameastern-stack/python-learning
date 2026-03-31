@@ -20,10 +20,12 @@ from posts import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("", views.home, name="homeurl"), 
     #path("post/helloworld", views.helloWorld),
     path("post/", include('posts.urls')),
     path("session/", include('sessiontut.urls')),
-    path("google/", views.google), # Redirect t 3rd party URL
+    path("accounts/", include('accounts.urls')),
+    path("google/", views.google, name="google"), # Redirect t 3rd party URL
     path("<int:id>/", views.redirect), # Redrect to own application URL
 ]
 

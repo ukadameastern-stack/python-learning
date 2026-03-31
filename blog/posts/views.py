@@ -1,4 +1,4 @@
-from django.http import Http404, HttpResponse, HttpResponseNotFound, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.shortcuts import get_object_or_404
@@ -12,7 +12,17 @@ def home(request):
     posts = Post.objects.all()
     return render(request, "posts/home.html", {"posts": posts, "username": "uday"})
 
+def list(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("loginurl"))
+    
+    posts = Post.objects.all()
+    return render(request, "posts/list.html", {"posts": posts, "username": "uday"})
+
 def post(request, id):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("loginurl"))
+    
     # try:
     #     post = Post.objects.filter(id=id).first()
     # except Post.DoesNotExist:
