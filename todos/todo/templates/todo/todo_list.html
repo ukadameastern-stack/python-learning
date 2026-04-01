@@ -10,9 +10,11 @@
     <a href="{% url 'add_todo' %}">Add a new todo</a>   
     <ul>
         {% for todo in todo_list %}
-            <a href="{% url 'todo_detail' todo.id %}">
-                <li>{{ todo.todo }}</li>
-            </a>
+            <li>
+                <a href="{% url 'todo_detail' todo.id %}">{{ todo.todo }}</a><br>
+                <a href="{% url 'todo_update' todo.id %}">Edit</a><br>
+            </li>
+            
         {% endfor %}
     </ul>
 </body>

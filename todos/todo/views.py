@@ -7,6 +7,7 @@ from django.views.generic import ListView # (2.2.1.1)
 from django.views.generic import DetailView # (2.2.1.2)
 from django.views.generic import FormView # (2.2.2.1)
 from django.views.generic import CreateView # (2.2.2.2)
+from django.views.generic import UpdateView # (2.2.2.3)
 from .forms import TodoForm
 from todo.models import Todo
 from django.shortcuts import redirect
@@ -94,6 +95,12 @@ class TodoDetailView(DetailView):
     model = Todo
     # template_name = "todo/details.html"
     # context_object_name = "todo"
+
+class UpdateToDoView(UpdateView):
+    model = Todo
+    form_class = TodoForm
+    template_name = "todo/todo_form.html"
+    success_url = "/"
 
 def detail(request, id):
     todo = Todo.objects.get(id=id)
