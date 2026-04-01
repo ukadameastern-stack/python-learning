@@ -4,6 +4,9 @@ from django.views import View # view class for class based views(2.1.1)
 from django.views.generic import TemplateView # (2.1.2)
 from django.views.generic import RedirectView # (2.1.3)
 from django.views.generic import ListView # (2.1.1.1)
+from django.views.generic import DetailView # (2.1.1.2)
+from django.views.generic import DetailView # (2.1.1.2)
+from django.views.generic import FormView # (2.2.2.1)
 from .forms import TodoForm
 from todo.models import Todo
 from django.shortcuts import redirect
@@ -55,7 +58,16 @@ class AddView(View):
             form.save()
             return redirect("home")
         
-        return render(request, "todo/add.html", {"form": form})
+#         return render(request, "todo/add.html", {"form": form})
+
+class AddView(FormView):
+    template_name = "todo/add.html"
+    form_class = TodoForm
+    success_url = "/"
+
+    def form_valid(self, form):
+        form.save()
+        return super().form_valid(form)
 
 class AboutView(TemplateView):
     template_name = "todo/about.html"
@@ -70,5 +82,14 @@ class RedirectToAboutView(RedirectView):
     #url = "/about/" # This is hardcoding the url. If we change the url pattern in urls.py, we need to change it here as well. This is not flexible and maintainable.
     pattern_name = "about_url" # this is using the route name defined in urls.py instead of hardcoding the url. This is more flexible and maintainable. If we change the url pattern in urls.py, we don't need to change it here.   
     query_string = True # This will preserve the query string parameters when redirecting. For example, if we access /about-redirect/?name=John, it will redirect to /about/?name=John and the name parameter will be preserved in the redirected URL.
+
+class TodoDetailView(DetailView):
+    model = Todo
+    # template_name = "todo/details.html"
+    # context_object_name = "todo"
+
+def detail(request, id):
+    todo = Todo.objects.get(id=id)
+    return render(request, "todo/details.html", {"todo": todo})
 
     

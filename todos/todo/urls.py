@@ -16,4 +16,6 @@ urlpatterns = [
     path("about/<str:name>/", views.AboutView.as_view(), name="about_name"),
     #path("about-redirect/", RedirectView.as_view(url="/about/")),
     path("about-redirect/", views.RedirectToAboutView.as_view() , name="about_redirect"),
+    #path("todo/<int:id>/", views.detail, name="todo_detail"),
+    path("todo/<int:pk>/", views.TodoDetailView.as_view(), name="todo_detail"),
 ]

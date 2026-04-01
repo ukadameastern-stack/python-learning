@@ -6,11 +6,13 @@
     <title>Todo home page</title>
 </head>
 <body>
-    <h1>Welcome to the todo's Page!</h1> 
+    <h1>Welcome to the todo's Page! From: todo_list.html</h1> 
     <a href="{% url 'add_todo' %}">Add a new todo</a>   
     <ul>
         {% for todo in todo_list %}
-            <li>{{ todo.todo }}</li>
+            <a href="{% url 'todo_detail' todo.id %}">
+                <li>{{ todo.todo }}</li>
+            </a>
         {% endfor %}
     </ul>
 </body>
