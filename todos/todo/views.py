@@ -6,6 +6,7 @@ from django.views.generic import RedirectView # (2.1.3)
 from django.views.generic import ListView # (2.2.1.1)
 from django.views.generic import DetailView # (2.2.1.2)
 from django.views.generic import FormView # (2.2.2.1)
+from django.views.generic import CreateView # (2.2.2.2)
 from .forms import TodoForm
 from todo.models import Todo
 from django.shortcuts import redirect
@@ -59,14 +60,21 @@ class HomeView(ListView):
         
 #         return render(request, "todo/add.html", {"form": form})
 
-class AddView(FormView):
-    template_name = "todo/add.html"
-    form_class = TodoForm
-    success_url = "/"
+# class AddView(FormView):
+#     template_name = "todo/add.html"
+#     form_class = TodoForm
+#     success_url = "/"
 
-    def form_valid(self, form):
-        form.save()
-        return super().form_valid(form)
+#     def form_valid(self, form):
+#         form.save()
+#         return super().form_valid(form)
+
+class AddView(CreateView):
+    model = Todo
+    form_class = TodoForm
+    #template_name = "todo/add.html" # By default, CreateView will look for a template 
+    # named "todo/todo_form.html"
+    success_url = "/"
 
 class AboutView(TemplateView):
     template_name = "todo/about.html"
