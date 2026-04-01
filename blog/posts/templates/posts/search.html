@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Search{% endblock %}
+
+{% block extra_head %}
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'posts/css/pagination.css' %}">
+    
+{% endblock %}
+
+{% block content %}
+    <h1>Search Results for "{{ query }}"</h1>
+    {% if posts %}
+        {% for post in posts %}
+            <div class="post">
+                <h2>{{ post.id }}. {{ post.post_title }}</h2>
+                <p>{{ post.post_content }} <a href="{% url 'posturl' post.id %}">more</a></p>
+                <p>{{ post.post_auther }} ({{ post.published_date }})</p>
+            </div>
+        {% endfor %}
+    {% else %}
+        <h1>No posts found matching your query.</h1>
+    {% endif %}
+
+    {% if total_results > 3 %}
+    <div class="pagination">
+
+        {% if posts.has_previous %}
+            <a class="page-btn" href="?q={{ query }}&page={{ posts.previous_page_number }}">Previous</a>
+        {% endif %}
+
+        {% for num in posts.paginator.page_range %}
+            {% if posts.number == num %}
+                <span class="page-btn active">{{ num }}</span>
+            {% else %}
+                <a class="page-btn" href="?q={{ query }}&page={{ num }}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if posts.has_next %}
+            <a class="page-btn" href="?q={{ query }}&page={{ posts.next_page_number }}">Next</a>
+        {% endif %}
+
+    </div>
+    {% endif %}
+
+{% endblock %}
+

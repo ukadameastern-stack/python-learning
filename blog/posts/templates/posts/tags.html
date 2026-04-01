@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Tag{% endblock %}
+
+{% block extra_head %}
+    
+
+{% endblock %}
+
+{% block content %}
+<h1>{{ tag.name }} </h1>
+    {% if tags %}
+        {% for post in tags %}
+            <div class="post">
+                <h2>{{ post.id }}. {{ post.post_title }}</h2>
+                <p>{{ post.post_content }} <a href="{% url 'posturl' post.id %}">more</a></p>
+                <p>{{ post.post_auther }} ({{ post.published_date }})</p>
+            </div>
+        {% endfor %}
+    {% else %}
+        <h1>No posts available for this tag</h1>
+    {% endif %}
+
+    <p><button onclick="history.back()" class="btn btn-primary">⬅ Back</button></p>
+
+{% endblock %}

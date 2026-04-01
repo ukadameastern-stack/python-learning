@@ -4,8 +4,10 @@ from django.urls import reverse
 from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 from django.core.paginator import Paginator
+from .forms import CommentForm
+from django.db.models import Q
 
-from posts.models import Post
+from posts.models import Post, Tag
 
 # Create your views here.
 
@@ -33,9 +35,59 @@ def post(request, id):
     # except Post.DoesNotExist:
     #     raise Http404("Post not found")
     post = get_object_or_404(Post, id=id)
+
+    if request.method == "POST":
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            # commit=False means that we want to create a Comment object but 
+            # not save it to the database yet
+
+            comment = form.save(commit=False)
+            comment.post = post
+            comment.comment_author = request.user 
+            comment.save()
+            post_url = reverse("posturl", args=[id])
+
+            return redirect(post_url, id=id)
+    else:
+        form = CommentForm()
     
-    return render(request, 'posts/post.html', {"post" : post})
+    return render(request, 'posts/post.html', {"post" : post, "form": form})
+
+def tags(request, id):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("loginurl"))
     
+    tag = Tag.objects.filter(id=id).first()
+    if not tag:
+        raise Http404("Tag not found")
+
+    return render(request, 'posts/tags.html', {"tags": tag.post_set.all(), "tag": tag})   
+
+def search(request):
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(reverse("loginurl"))
+    
+    query = request.GET.get("q", None)
+    posts = Post.objects.filter(
+        Q(post_title__icontains=query) | 
+        Q(post_content__icontains=query) |
+        Q(tags__name__icontains=query)
+    ).distinct()
+    paginator = Paginator(posts, 3, orphans=2)  # Show 2 posts per page
+    page_number = request.GET.get('page')
+    posts = paginator.get_page(page_number)
+
+    return render(
+        request, 
+        'posts/search.html', 
+        {
+            "posts": posts, 
+            "query": query,
+            "total_results": posts.paginator.count
+        }
+    )
+
 def google(request):
     return HttpResponseRedirect('https://www.google.com') 
 

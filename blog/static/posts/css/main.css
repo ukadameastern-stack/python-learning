@@ -7,8 +7,10 @@ body {
 header {
     background-color: #333;
     color: #fff;
-    padding: 15px;
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
 }
 
 nav {
@@ -104,3 +106,26 @@ footer {
     color: #0c5460;
     border: 1px solid #bee5eb;
 }
+
+.header-left h1 {
+    margin: 0;
+}
+
+.header-left p {
+    margin: 0;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.header-right form {
+    display: flex;
+    gap: 8px;
+}
+
+.header-right input {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    outline: none;
+}
+    
