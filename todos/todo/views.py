@@ -8,6 +8,7 @@ from django.views.generic import DetailView # (2.2.1.2)
 from django.views.generic import FormView # (2.2.2.1)
 from django.views.generic import CreateView # (2.2.2.2)
 from django.views.generic import UpdateView # (2.2.2.3)
+from django.views.generic import DeleteView # (2.2.2.4)
 from .forms import TodoForm
 from todo.models import Todo
 from django.shortcuts import redirect
@@ -101,6 +102,13 @@ class UpdateToDoView(UpdateView):
     form_class = TodoForm
     template_name = "todo/todo_form.html"
     success_url = "/"
+
+class DeleteToDoView(DeleteView):
+    model = Todo
+    #template_name = "todo/todo_confirm_delete.html"
+    success_url = "/"  
+    
+      
 
 def detail(request, id):
     todo = Todo.objects.get(id=id)

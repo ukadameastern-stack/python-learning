@@ -12,7 +12,8 @@
         {% for todo in todo_list %}
             <li>
                 <a href="{% url 'todo_detail' todo.id %}">{{ todo.todo }}</a><br>
-                <a href="{% url 'todo_update' todo.id %}">Edit</a><br>
+                <a href="{% url 'todo_update' todo.id %}">Edit</a> 
+                <a href="{% url 'todo_delete' todo.id %}">Delete</a><br>
             </li>
             
         {% endfor %}
