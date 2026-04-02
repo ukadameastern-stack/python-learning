@@ -6,8 +6,10 @@ from django.template.response import TemplateResponse
 from django.core.paginator import Paginator
 from .forms import CommentForm
 from django.db.models import Q
-
 from posts.models import Post, Tag
+from django.views.generic.list import ListView
+from django.views.generic.detail import DetailView
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 # Create your views here.
 
@@ -25,6 +27,17 @@ def list(request):
     posts = paginator.get_page(page_number)
 
     return render(request, "posts/list.html", {"posts": posts})
+
+class PostListView(LoginRequiredMixin, ListView):
+    model = Post
+    template_name = "posts/list.html"
+    context_object_name = "posts"
+    paginate_by = 3
+    paginate_orphans = 2
+    ordering = ["-id"]
+
+    login_url = "loginurl"          # URL name
+    redirect_field_name = "next"    # optional (default is 'next')
 
 def post(request, id):
     if not request.user.is_authenticated:
@@ -53,6 +66,37 @@ def post(request, id):
         form = CommentForm()
     
     return render(request, 'posts/post.html', {"post" : post, "form": form})
+
+class PostDetailView(LoginRequiredMixin, DetailView):
+    model = Post
+    template_name = "posts/post.html"
+    context_object_name = "post"
+    pk_url_kwarg = "id"   # important (since you're using id)
+
+    # GET request
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["form"] = CommentForm()
+        return context
+
+    # POST request (form submit)
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()   # get Post instance
+        form = CommentForm(request.POST)
+
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.post = self.object
+            comment.comment_author = request.user
+            comment.save()
+
+            return redirect("posturl", id=self.object.id)
+
+        # if form invalid → re-render page with errors
+        context = self.get_context_data()
+        context["form"] = form
+        
+        return self.render_to_response(context)
 
 def tags(request, id):
     if not request.user.is_authenticated:
@@ -87,6 +131,40 @@ def search(request):
             "total_results": posts.paginator.count
         }
     )
+
+class SearchView(LoginRequiredMixin, ListView):
+    model = Post
+    template_name = "posts/search.html"
+    context_object_name = "posts"
+    paginate_by = 3
+    paginate_orphans = 2
+
+    # 🔍 core logic
+    def get_queryset(self):
+        query = self.request.GET.get("q", None)
+
+        if query:
+            return Post.objects.filter(
+                Q(post_title__icontains=query) |
+                Q(post_content__icontains=query) |
+                Q(tags__name__icontains=query)
+            ).distinct().order_by("-id")
+
+        return Post.objects.none()  # no query → no results
+
+    # 📦 extra context
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        query = self.request.GET.get("q")
+
+        context["query"] = query
+        if context.get("page_obj"):
+            context["total_results"] = context["page_obj"].paginator.count
+        else:
+            context["total_results"] = 0
+        print("Context:", context)
+
+        return context
 
 def google(request):
     return HttpResponseRedirect('https://www.google.com') 
