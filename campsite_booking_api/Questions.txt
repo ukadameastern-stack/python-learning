@@ -1,0 +1,4 @@
+1. What is the default JSON field naming convention?
+    -> snake_case
+
+2. On production are we also using on_delete=models.CASCADE ?
