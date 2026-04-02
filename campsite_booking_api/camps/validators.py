@@ -12,7 +12,7 @@ class BookingValidator(ABC):
 
 class OverlapValidator(BookingValidator):
 
-    def validate(self, booking: BookingInput):
+    def validate(self, booking: BookingInput) -> Optional[str]:
 
         start = booking.start_date
         end = booking.end_date

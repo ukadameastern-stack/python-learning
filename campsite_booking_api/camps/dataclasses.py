@@ -7,4 +7,5 @@ class BookingInput:
     campsite_id: int
     start_date: date
     end_date: date
+    guests: int
     user_id: Optional[int] = None

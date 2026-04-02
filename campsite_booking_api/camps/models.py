@@ -24,6 +24,7 @@ class Booking(TimestampMixin, models.Model):
     campsite = models.ForeignKey(Campsite, on_delete=models.CASCADE)
     start_date = models.DateField()
     end_date = models.DateField()
+    guests = models.IntegerField()
 
     def __str__(self) -> str:
         return f"{self.user} - {self.campsite}"

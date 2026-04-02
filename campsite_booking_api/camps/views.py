@@ -38,6 +38,7 @@ class BookingCreateAPI(CreateAPIView):
             campsite_id=data["campsite"].id,
             start_date=data["start_date"],
             end_date=data["end_date"],
+            guests=data["guests"],
             user_id=self.request.user.id
         )
 

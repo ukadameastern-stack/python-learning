@@ -29,7 +29,7 @@ class BookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Booking
-        fields = ["id", "campsite", "start_date", "end_date"]
+        fields = ["id", "campsite", "start_date", "end_date", "guests"] # Fields to define what data gets sent to the client.
 
     def validate(self, data):
         validator = OverlapValidator()
@@ -37,7 +37,8 @@ class BookingSerializer(serializers.ModelSerializer):
         booking_input = BookingInput(
             campsite_id=data["campsite"].id,
             start_date=data["start_date"],
-            end_date=data["end_date"]
+            end_date=data["end_date"],
+            guests=data["guests"]
         )
 
         error = validator.validate(booking_input)
