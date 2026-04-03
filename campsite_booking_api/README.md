@@ -255,7 +255,6 @@ python manage.py runserver
 * Booking validation via **Abstract Base Class**
 * Shared fields via **Model Mixins**
 * Uses **@property** and **@staticmethod**
-* Type hints (`List`, `Optional`) included
 * Dataclass used for structured input handling
 
 ---
