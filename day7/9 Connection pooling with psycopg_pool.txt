@@ -1,0 +1,255 @@
+Connection pooling with psycopg3 via psycopg_pool is essential 
+once your app has concurrent traffic. 
+It lets you reuse database connections to PostgreSQL instead of 
+opening/closing one per request.
+
+------------------------------------
+🧠 1️⃣ Why pooling matters
+------------------------------------
+
+Without pooling
+
+    Request → open connection → query → close connection
+
+Problems:
+
+    Connection setup is expensive (TCP + auth)
+    High latency under load
+    DB can run out of connections
+
+With pooling
+
+    Pool (10 connections)
+    Requests reuse them
+
+👉 Benefits:
+
+    Lower latency
+    Higher throughput
+    Controlled DB load
+
+------------------------------------    
+⚙️ 2️⃣ Install
+------------------------------------
+    
+    pip install psycopg_pool
+
+------------------------------------
+🧱 3️⃣ Basic pool setup
+------------------------------------
+
+Create a singleton pool:
+
+# db/pool.py
+    from psycopg_pool import ConnectionPool
+
+    pool = ConnectionPool(
+        conninfo="dbname=campsite_db user=campsite_user password=strongpassword host=localhost",
+        min_size=5,
+        max_size=20,
+    )
+
+------------------------------------    
+🚀 4️⃣ Using the pool
+------------------------------------
+
+from db.pool import pool
+
+    def get_campsites():
+        with pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM camps_campsite;")
+                return cur.fetchall()
+
+👉 pool.connection():
+
+    Borrows a connection
+    Returns it automatically
+
+------------------------------------
+🔄 5️⃣ Transaction behavior
+------------------------------------
+
+Each borrowed connection:
+
+    Starts a transaction implicitly
+    Commits on success
+    Rolls back on exception
+
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(...)
+
+-------------------------------------------
+🔒 6️⃣ Safe booking example (your use case)
+-------------------------------------------
+
+    from psycopg.rows import dict_row
+    from db.pool import pool
+
+    def create_booking(user_id, campsite_id, date):
+        with pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+
+                # Lock row
+                cur.execute(
+                    """
+                    SELECT id FROM camps_campsite
+                    WHERE id = %s
+                    FOR UPDATE
+                    """,
+                    (campsite_id,)
+                )
+
+                # Insert with conflict protection
+                cur.execute(
+                    """
+                    INSERT INTO camps_booking (user_id, campsite_id, date)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (campsite_id, date)
+                    DO NOTHING
+                    RETURNING id
+                    """,
+                    (user_id, campsite_id, date)
+                )
+
+                result = cur.fetchone()
+
+                if not result:
+                    raise Exception("Already booked")
+
+                return result["id"]
+
+-------------------------------------------
+⚡ 7️⃣ Pool configuration tuning
+-------------------------------------------
+
+    pool = ConnectionPool(
+        conninfo="...",
+        min_size=5,        # always-open connections
+        max_size=20,       # max concurrent connections
+        timeout=30,        # wait time for connection
+        max_lifetime=3600, # recycle connections
+        max_idle=300,      # close idle connections
+    )
+
+How to size pool
+
+Rule of thumb:
+
+    pool size ≈ (CPU cores * 2) + effective concurrency
+
+Example:
+
+Small app → 5–10
+Medium API → 10–30
+Large system → depends on DB limits
+
+-------------------------------------------
+🔍 8️⃣ Pool lifecycle (important)
+-------------------------------------------
+
+Startup
+
+    pool.open()
+
+(optional—auto opens on first use)
+
+Shutdown
+
+    pool.close()
+
+👉 Use in:
+
+    Django AppConfig.ready()
+    or server shutdown hooks
+
+-------------------------------------------
+⚠️ 9️⃣ Common mistakes
+-------------------------------------------
+
+❌ Creating pool per request
+
+    def view():
+        pool = ConnectionPool(...)  # WRONG
+
+👉 Always global singleton
+
+❌ Long transactions
+
+    with pool.connection():
+        call_external_api()  # BAD
+
+👉 Holds connection → blocks pool
+
+❌ Not handling pool exhaustion
+
+If all connections busy:
+
+    requests wait
+    or timeout
+
+-------------------------------------------    
+🧱 10️⃣ psycopg_pool vs Django ORM pooling
+-------------------------------------------
+
+
+Django:
+
+    Doesn’t do real pooling
+    Uses persistent connections (CONN_MAX_AGE)
+
+psycopg_pool:
+
+    True pooling
+    Better for high concurrency
+
+-------------------------------------------    
+🚀 11️⃣ Production architecture
+-------------------------------------------
+
+    App (Django / FastAPI)
+            ↓
+    psycopg_pool (10–20 connections)
+            ↓
+    PostgreSQL (max_connections)
+
+---------------------------------------------    
+⚡ 12️⃣ Advanced: PgBouncer (external pooling)
+---------------------------------------------
+
+For large systems:
+
+    App → psycopg_pool → PgBouncer → PostgreSQL
+
+👉 Adds:
+
+    Transaction pooling
+    Better scaling
+
+---------------------------------------------    
+🧩 Final takeaway
+---------------------------------------------
+
+    Pooling = reuse connections efficiently
+    psycopg_pool = lightweight, high-performance
+    Critical for:
+        APIs
+        concurrent users
+        booking systems
+
+---------------------------------------------    
+💡 Recommendation for your project
+---------------------------------------------
+
+Start with:
+
+    min_size=5
+    max_size=15
+
+Then monitor:
+
+    DB connections
+    response time
+    errors

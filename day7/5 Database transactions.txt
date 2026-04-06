@@ -1,0 +1,263 @@
+For a booking system, transactions + row-level locking are 
+the difference between correct and occasionally wrong. 
+In Django (backed by PostgreSQL), you’ll use:
+
+    transaction.atomic() → all-or-nothing unit of work
+    select_for_update() → row-level locks to prevent races
+
+Below is a precise, production-oriented guide.
+
+---------------------------------------------------
+🧠 1️⃣ transaction.atomic() — ACID boundary
+---------------------------------------------------
+
+Wrap a set of DB operations so they either all commit or all rollback.
+
+    from django.db import transaction
+
+    @transaction.atomic
+    def create_booking(...):
+        # all queries here are one transaction
+        ...
+
+Behavior
+
+    Starts a transaction on entry
+    Commit on success
+    Rollback on exception
+
+Why it matters
+
+    Without it:
+
+        Booking.objects.create(...)
+        Payment.objects.create(...)  # fails
+
+👉 You end up with partial state
+
+With atomic():
+
+👉 Either both succeed or none persist
+
+Nested transactions (savepoints)
+
+    with transaction.atomic():
+        ...
+        with transaction.atomic():
+            ...  # inner savepoint
+
+    Inner block failure rolls back to savepoint
+    Outer transaction can continue
+
+---------------------------------------------------
+🔒 2️⃣ select_for_update() — row-level locking
+---------------------------------------------------
+
+Locks selected rows until transaction ends.
+
+    campsite = (
+        Campsite.objects
+        .select_for_update()
+        .get(id=campsite_id)
+    )
+
+👉 Other transactions trying to lock the same row:
+
+    wait (default)
+    or fail immediately (with options)
+
+---------------------------------------------------    
+🚩 Why you NEED it (race condition example)
+---------------------------------------------------
+
+Without locking
+
+Two requests at same time:
+
+    # Request A
+    if not Booking.objects.filter(...).exists():
+        Booking.objects.create(...)
+
+    # Request B (same time)
+    if not Booking.objects.filter(...).exists():
+        Booking.objects.create(...)
+
+👉 Both pass check → double booking
+
+With select_for_update()
+---------------------------------------------------
+
+    from django.db import transaction
+
+    @transaction.atomic
+    def create_booking(user_id, campsite_id, date):
+        campsite = (
+            Campsite.objects
+            .select_for_update()
+            .get(id=campsite_id)
+        )
+
+        if Booking.objects.filter(
+            campsite=campsite,
+            date=date
+        ).exists():
+            raise Exception("Already booked")
+
+        Booking.objects.create(...)
+
+👉 Flow:
+
+    Request A locks row
+    Request B waits
+    A commits → B re-checks → blocked correctly
+
+---------------------------------------------------    
+⚙️ 3️⃣ Locking modes (advanced)
+---------------------------------------------------
+
+Default (blocking)
+
+    .select_for_update()
+
+Waits until lock is released
+
+nowait=True
+    
+    .select_for_update(nowait=True)
+
+👉 If locked → immediate error
+
+Use case:
+
+    High-throughput APIs
+    Fail fast instead of waiting
+
+skip_locked=True
+
+    .select_for_update(skip_locked=True)
+
+👉 Skips locked rows
+
+Use case:
+
+    Job queues / background workers
+
+---------------------------------------------------    
+🧱 4️⃣ Correct pattern for booking system
+---------------------------------------------------
+
+Gold standard (Django ORM)
+
+    from django.db import transaction
+
+    @transaction.atomic
+    def create_booking(user, campsite_id, date):
+        campsite = (
+            Campsite.objects
+            .select_for_update()
+            .get(id=campsite_id)
+        )
+
+        exists = Booking.objects.filter(
+            campsite=campsite,
+            date=date
+        ).exists()
+
+        if exists:
+            raise ValueError("Already booked")
+
+        return Booking.objects.create(
+            user=user,
+            campsite=campsite,
+            date=date
+        )
+
+---------------------------------------------------        
+🔐 5️⃣ Add DB-level protection (MUST)
+---------------------------------------------------
+
+Even with locking, always enforce constraints:
+
+    class Booking(models.Model):
+        campsite = models.ForeignKey(Campsite, ...)
+        date = models.DateField()
+
+        class Meta:
+            constraints = [
+                models.UniqueConstraint(
+                    fields=["campsite", "date"],
+                    name="unique_booking_per_day"
+                )
+            ]
+
+👉 This guarantees correctness even if:
+
+    Code bug
+    Missing lock
+    Concurrent edge cases
+
+---------------------------------------------------   
+⚡ 6️⃣ Isolation levels (important concept)
+---------------------------------------------------
+
+PostgreSQL default = READ COMMITTED
+
+Meaning:
+
+    Each query sees committed data only
+    Works well with select_for_update()
+
+You rarely need to change it.
+
+---------------------------------------------------
+⚠️ 7️⃣ Common mistakes
+---------------------------------------------------
+
+❌ Using select_for_update() without transaction
+
+    # WRONG
+    campsite = Campsite.objects.select_for_update().get(...)
+
+👉 No effect → lock released immediately
+
+❌ Long transactions
+
+    with transaction.atomic():
+        call_external_api()  # BAD
+
+👉 Locks held too long → performance issues
+
+❌ Locking too many rows
+
+    Campsite.objects.select_for_update().all()
+
+👉 Massive contention
+
+---------------------------------------------------
+🚀 8️⃣ psycopg3 equivalent (for your hybrid setup)
+---------------------------------------------------
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id FROM camps_campsite
+                WHERE id = %s
+                FOR UPDATE
+                """,
+                (campsite_id,)
+            )
+
+👉 Same concept → explicit SQL
+
+---------------------------------------------------
+🧩 Final takeaway
+---------------------------------------------------
+    atomic() → consistency boundary
+    select_for_update() → concurrency control
+    Unique constraints → final safety net
+
+👉 For your booking system:
+
+atomic() + select_for_update() + UNIQUE constraint
+= NO double booking (production safe)

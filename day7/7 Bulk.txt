@@ -1,0 +1,203 @@
+For write-heavy paths, Django’s bulk_create() and bulk_update() 
+reduce round-trips to PostgreSQL by issuing set-based operations 
+instead of per-row queries. Used correctly, they deliver 
+order-of-magnitude speedups.
+
+--------------------------------------
+🧠 1️⃣ Why bulk ops are faster
+--------------------------------------
+
+Naive (N queries)
+
+    for obj in objs:
+        obj.save()   # N INSERT/UPDATE statements
+    Bulk (1–k queries)
+    Model.objects.bulk_create(objs)
+    Model.objects.bulk_update(objs, fields=[...])
+
+👉 Fewer network hops, fewer parses, better planner utilization.
+
+--------------------------------------
+🚀 2️⃣ bulk_create() — insert many rows
+--------------------------------------
+
+    objs = [
+        Campsite(name="Hill View", metadata={"wifi": True}),
+        Campsite(name="River Side", metadata={"wifi": False}),
+    ]
+
+    Campsite.objects.bulk_create(objs)
+
+Key options
+
+    Campsite.objects.bulk_create(
+        objs,
+        batch_size=1000,        # split into chunks
+        ignore_conflicts=True,  # skip duplicates (ON CONFLICT DO NOTHING)
+    )
+
+    batch_size: avoids oversized packets; tune (500–5000 typical).
+    ignore_conflicts: maps to ON CONFLICT DO NOTHING.
+
+
+Returning IDs
+
+    On modern Django + PostgreSQL, PKs are populated by default.
+    If you rely on them, test in your version; older setups may need returning support.
+
+---------------------------------------
+✏️ 3️⃣ bulk_update() — update many rows
+---------------------------------------
+
+    objs = list(Campsite.objects.filter(...))
+
+    for o in objs:
+        o.metadata["wifi"] = True
+
+    Campsite.objects.bulk_update(objs, ["metadata"], batch_size=1000)
+
+👉 Generates efficient batched UPDATE statements.
+
+---------------------------------------
+⚙️ 4️⃣ Performance characteristics
+---------------------------------------
+
+| Operation     | ORM loop     | Bulk op        |
+| ------------- | ------------ | -------------- |
+| Inserts (10k) | ~10k queries | ~10–20 queries |
+| Updates (10k) | ~10k queries | ~10–20 queries |
+
+
+(Exact counts depend on batch_size.)
+
+------------------------------------------
+⚠️ 5️⃣ Critical limitations (often missed)
+------------------------------------------
+
+    ❌ Signals are NOT fired
+    
+        pre_save, post_save won’t run
+
+    ❌ save() is NOT called
+    
+        Custom logic in save() is skipped
+
+    ❌ Auto fields / defaults
+        
+        Python-side defaults won’t execute per row
+        DB defaults still apply
+
+    ❌ Many-to-many not supported
+
+        Handle M2M separately
+
+    ❌ No per-row validation
+
+        Validate beforehand (DRF serializer / custom checks)
+
+------------------------------------------
+🔒 6️⃣ Transactions (use with atomic())
+------------------------------------------
+
+Always wrap bulk writes:
+
+    from django.db import transaction
+
+    with transaction.atomic():
+        Campsite.objects.bulk_create(objs, batch_size=1000)
+
+👉 Ensures all-or-nothing
+
+----------------------------------------------------
+🧱 7️⃣ Conflict handling (PostgreSQL upsert patterns)
+----------------------------------------------------
+
+Skip duplicates
+
+    Campsite.objects.bulk_create(objs, ignore_conflicts=True)
+
+True UPSERT (update on conflict)
+Django’s bulk_create doesn’t fully expose DO UPDATE for arbitrary fields. Options:
+
+    Use unique constraints + ignore_conflicts then follow with bulk_update
+    Or drop to raw SQL / psycopg3 for ON CONFLICT (...) DO UPDATE SET ...
+
+----------------------------------------------------
+⚡ 8️⃣ Real use in your booking system
+----------------------------------------------------
+
+Example: import many campsites
+--------------------------------
+
+    data = [
+        {"name": "Hill", "metadata": {"wifi": True}},
+        {"name": "Lake", "metadata": {"wifi": False}},
+    ]
+
+    objs = [Campsite(**row) for row in data]
+
+    Campsite.objects.bulk_create(objs, batch_size=500)
+
+Example: mass update metadata flag
+-----------------------------------
+
+    qs = Campsite.objects.filter(metadata__has_key="wifi")
+
+    objs = list(qs)
+    for o in objs:
+        o.metadata["wifi"] = True
+
+    Campsite.objects.bulk_update(objs, ["metadata"], batch_size=500)
+
+---------------------------------------
+🧠 9️⃣ Combining with JSONB efficiently
+---------------------------------------
+
+    Bulk insert JSON → fast with GIN index present
+    Avoid per-row Python transforms inside loops; precompute data
+
+---------------------------------------
+🚀 10️⃣ Advanced: chunking pattern
+---------------------------------------
+
+    def chunked(iterable, size):
+        for i in range(0, len(iterable), size):
+            yield iterable[i:i+size]
+
+    for batch in chunked(objs, 1000):
+        Campsite.objects.bulk_create(batch)
+
+👉 Prevents memory spikes
+
+---------------------------------------
+⚠️ 11️⃣ When NOT to use bulk ops
+---------------------------------------
+
+Avoid if you need:
+
+    Signals / hooks
+    Complex per-row logic
+    Immediate side-effects (emails, logs)
+    Strong per-row validation
+
+---------------------------------------
+🧩 12️⃣ Best-practice checklist
+---------------------------------------
+
+    ✔ Use batch_size
+    ✔ Wrap in atomic()
+    ✔ Validate beforehand
+    ✔ Add DB constraints (uniques)
+    ✔ Consider raw SQL for true upsert
+
+---------------------------------------
+🧠 Final takeaway
+---------------------------------------
+
+    bulk_create() → fast inserts at scale
+    bulk_update() → efficient mass updates
+    Trade-off → speed vs lifecycle hooks
+
+👉 In production systems like yours:
+
+Bulk ops + PostgreSQL = high-throughput data pipelines
