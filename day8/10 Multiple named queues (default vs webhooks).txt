@@ -1,0 +1,186 @@
+10. Multiple named queues (default vs webhooks); 
+=================================================
+
+🔹 1. Why Multiple Queues?
+
+
+If everything goes into default:
+
+    emails + webhooks + slow APIs → same queue ❌
+
+Problems:
+
+    Slow jobs block fast ones
+    No prioritization
+    Hard to scale selectively
+
+✔ Solution
+
+Split by workload:
+
+    default   → general tasks  
+    emails    → email sending  
+    webhooks  → external callbacks  
+
+
+🔹 2. Configure in settings.py
+
+
+    RQ_QUEUES = {
+        "default": {
+            "HOST": "127.0.0.1",
+            "PORT": 6379,
+            "DB": 0,
+            "DEFAULT_TIMEOUT": 300,
+        },
+        "webhooks": {
+            "HOST": "127.0.0.1",
+            "PORT": 6379,
+            "DB": 0,
+            "DEFAULT_TIMEOUT": 600,
+        },
+    }
+
+
+🔹 3. Enqueue to Specific Queue
+
+
+Using enqueue
+
+    import django_rq
+
+    django_rq.enqueue(send_webhook, booking_id, queue="webhooks")
+
+Using queue object
+
+    queue = django_rq.get_queue("webhooks")
+    queue.enqueue(send_webhook, booking_id)    
+
+
+🔹 4. Using @job Decorator (Best Practice)
+
+
+    from django_rq import job
+
+    @job("webhooks")
+    def send_webhook(booking_id):
+        ...
+
+Call:
+
+    send_webhook.delay(booking_id)
+
+
+🔹 5. Run Workers Per Queue
+
+
+Separate workers
+
+    python manage.py rqworker default
+    python manage.py rqworker webhooks
+
+✔ Why this matters
+
+You can scale independently:
+
+    default workers  → 2
+    webhook workers  → 10  (more load)   
+
+
+🔹 6. Priority via Queue Order
+
+
+You can prioritize queues:
+
+    python manage.py rqworker default webhooks
+
+👉 Worker will:
+
+    Check default first
+    Then webhooks
+
+
+🔹 7. Real Use Case (Your Booking System)
+
+
+Tasks
+
+    @job("default")
+    def create_booking_record(...):
+        ...
+
+    @job("webhooks")
+    def notify_partner(...):
+        ...
+
+Flow
+
+    User books → fast response
+            ↓
+    default queue → internal logic
+    webhooks queue → external API calls
+
+
+🔹 8. Why Separate Webhooks Queue?
+
+
+Webhooks are:
+
+    Slow (network)
+    Unreliable (third-party)
+    Retry-heavy
+
+👉 If mixed with default:
+
+    Webhook failure → blocks critical tasks ❌
+
+👉 With separate queue:
+
+    Webhook issues → isolated ✅
+
+
+🔹 9. Advanced Pattern: Queue Per Workload Type
+
+
+    | Queue    | Purpose        |
+    | -------- | -------------- |
+    | default  | general tasks  |
+    | emails   | email sending  |
+    | webhooks | external APIs  |
+    | high     | critical tasks |
+
+
+🔹 10. Timeouts Per Queue
+
+
+    "webhooks": {
+        "DEFAULT_TIMEOUT": 600  # longer allowed
+    }
+
+👉 Webhooks need more time than normal jobs
+
+
+🔹 11. Mental Model
+
+
+    Queues = traffic lanes
+
+    default   → fast lane  
+    webhooks  → slow lane  
+
+
+🔚 Summary
+
+
+    Multiple queues = isolation + scalability
+    Use:
+        default → core tasks
+        webhooks → external calls
+    Run separate workers
+    Prioritize using worker order
+
+
+🔹 One-Line Rule
+
+
+    Different workload characteristics → different queues

@@ -1,0 +1,203 @@
+13. RQ Scheduler for delayed/recurring jobs
+==============================================
+
+
+RQ Scheduler adds time-based execution on top of RQ—so 
+you can run jobs later or on a schedule (cron-like), instead of immediately.
+
+
+🔹 1. Why RQ Scheduler?
+
+
+RQ by default:
+
+    q.enqueue(task)   # runs ASAP
+
+But real systems need:
+
+    “Run after 10 minutes”
+    “Run every hour”
+    “Retry later”
+
+👉 That’s where RQ Scheduler comes in.
+
+
+🔹 2. Install
+
+
+    pip install rq-scheduler
+
+
+🔹 3. Start the Scheduler
+
+
+    rqscheduler
+
+👉 This is a separate process (like a worker)
+
+
+🔹 4. Basic Usage
+
+
+    Create scheduler
+    from rq_scheduler import Scheduler
+    from redis import Redis
+    import datetime
+
+    redis_conn = Redis()
+    scheduler = Scheduler(connection=redis_conn)
+
+
+🔹 5. Delayed Jobs (Run Later)
+
+
+    scheduler.enqueue_in(
+        datetime.timedelta(seconds=30),
+        send_email,
+        user_id=42
+    )
+
+👉 Runs after 30 seconds
+
+🔸 Run at specific time
+
+    scheduler.enqueue_at(
+        datetime.datetime(2026, 4, 7, 10, 0),
+        send_email,
+        user_id=42
+    )
+
+ 
+ 🔹 6. Recurring Jobs (Cron-like)
+
+
+    scheduler.schedule(
+        scheduled_time=datetime.datetime.utcnow(),
+        func=cleanup_expired_bookings,
+        interval=3600,  # every hour
+        repeat=None     # infinite
+    )
+
+🔸 Limited repetitions
+
+    scheduler.schedule(
+        scheduled_time=datetime.datetime.utcnow(),
+        func=task,
+        interval=60,
+        repeat=10
+    )
+
+👉 Runs 10 times  
+
+
+🔹 7. How It Works Internally
+
+
+    Scheduler process
+        ↓
+    Stores jobs in Redis (future timestamps)
+        ↓
+    Checks every second
+        ↓
+    Moves due jobs → RQ queue
+        ↓
+    Worker executes job
+
+
+🔹 8. Django Integration (django-rq)
+
+
+You can still use:
+
+    import django_rq
+    from rq_scheduler import Scheduler
+
+    scheduler = Scheduler(queue=django_rq.get_queue("default"))
+
+
+ 🔹 9. Real Use Cases
+
+
+✔ Delayed Email
+
+    scheduler.enqueue_in(
+        timedelta(minutes=5),
+        send_booking_confirmation,
+        booking_id
+    )
+
+✔ Retry Webhook Later
+
+    scheduler.enqueue_in(
+        timedelta(minutes=2),
+        send_webhook,
+        booking_id
+    )
+
+✔ Periodic Cleanup
+
+    scheduler.schedule(
+        scheduled_time=datetime.utcnow(),
+        func=cleanup_old_sessions,
+        interval=86400,  # daily
+    )   
+
+
+🔹 10. Important Production Setup
+
+
+You need 3 processes:
+
+    1. Django app
+    2. rqworker
+    3. rqscheduler  ✅ (often forgotten)
+
+
+🔹 11. Common Pitfalls
+
+
+    ❌ Forgetting to run rqscheduler
+    → delayed jobs never run
+
+    ❌ Timezone issues
+    → always use UTC
+
+    ❌ Long-running scheduled tasks
+    → keep tasks small
+
+
+🔹 12. RQ Scheduler vs Cron
+
+
+    | Feature         | RQ Scheduler | Cron             |
+    | --------------- | ------------ | ---------------- |
+    | Dynamic jobs    | ✅            | ❌              |
+    | Stored in Redis | ✅            | ❌              |
+    | App-aware       | ✅            | ❌              |
+    | Persistence     | ✅            | system-level    |
+
+
+
+🔹 13. Mental Model
+
+
+    enqueue()      → run now  
+    enqueue_in()   → run later  
+    schedule()     → run repeatedly  
+
+
+🔚 Summary
+
+
+    RQ Scheduler = time-based job execution
+    Supports:
+        delayed jobs
+        scheduled jobs
+        recurring jobs
+    Requires separate rqscheduler process
+
+
+🔹 One-Line Rule
+
+
+    If timing matters → use RQ Scheduler

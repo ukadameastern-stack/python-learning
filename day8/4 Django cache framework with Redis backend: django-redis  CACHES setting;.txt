@@ -1,0 +1,225 @@
+Django cache framework with Redis backend: django-redis / CACHES setting
+=========================================================================
+
+Django’s cache framework provides a backend-agnostic abstraction. 
+When you plug Redis in via django-redis, you get high-performance caching 
+with minimal code changes, backed by redis-py.
+
+Below is a precise breakdown of how CACHES works 
++ production-grade configuration.
+
+--------------------------------------------------------
+🔹 1. Core CACHES Setting
+--------------------------------------------------------
+
+Minimal configuration
+
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": "redis://127.0.0.1:6379/1",
+        }
+    }
+
+What each field means
+
+| Field      | Meaning                            |
+| ---------- | ---------------------------------- |
+| `BACKEND`  | Cache backend implementation       |
+| `LOCATION` | Redis connection string            |
+| `default`  | Default cache alias used by Django |
+
+--------------------------------------------------------
+🔹 2. Full Production Configuration
+--------------------------------------------------------
+
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+
+            # Redis URI
+            "LOCATION": "redis://127.0.0.1:6379/1",
+
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+
+                # Connection pool config (important)
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": 50,
+                    "retry_on_timeout": True,
+                },
+
+                # Serialization
+                "SERIALIZER": "django_redis.serializers.json.JSONSerializer",
+            },
+
+            # Default timeout (seconds)
+            "TIMEOUT": 300,
+
+            # Key prefix (avoid collisions across environments)
+            "KEY_PREFIX": "myapp",
+
+            # Versioning support
+            "VERSION": 1,
+        }
+    }
+
+--------------------------------------------------------
+🔹 3. Redis URL Variants
+--------------------------------------------------------
+
+    redis://localhost:6379/1        # normal
+    redis://:password@localhost:6379/1   # with auth
+    rediss://localhost:6379/1       # SSL/TLS
+
+--------------------------------------------------------
+🔹 4. Multiple Cache Backends (Advanced)
+--------------------------------------------------------
+
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": "redis://127.0.0.1:6379/1",
+        },
+        "sessions": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": "redis://127.0.0.1:6379/2",
+        }
+    }
+
+Usage:
+
+    from django.core.cache import caches
+
+    cache = caches["default"]
+    session_cache = caches["sessions"]
+
+--------------------------------------------------------
+🔹 5. How Django Uses This Internally
+--------------------------------------------------------
+
+When you call:
+
+    from django.core.cache import cache
+    cache.get("key")
+
+Flow:
+
+    Django cache API
+        ↓
+    django-redis backend
+        ↓
+    redis-py client
+        ↓
+    Redis server
+
+--------------------------------------------------------
+🔹 6. Key Design Mechanics
+--------------------------------------------------------
+
+Django internally builds keys like:
+
+    {KEY_PREFIX}:{VERSION}:{your_key}
+
+Example:
+
+    myapp:1:user:42
+
+👉 This helps:
+
+    Environment isolation
+    Version-based invalidation
+
+--------------------------------------------------------
+🔹 7. Timeouts & Expiry Strategy
+--------------------------------------------------------
+
+
+    cache.set("key", "value", timeout=60)   # 1 min
+    cache.set("key", "value", timeout=None) # never expire
+    cache.set("key", "value", timeout=0)    # don't cache
+
+👉 Recommendation:
+
+    Always use finite TTL
+    Avoid infinite caching unless static data
+
+--------------------------------------------------------
+🔹 8. Compression (Optional Optimization)
+--------------------------------------------------------
+
+    "OPTIONS": {
+        "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
+    }
+
+✔ Useful for large payloads
+    ❗ Adds CPU overhead
+
+--------------------------------------------------------
+🔹 9. Atomic Operations (Redis Advantage)
+--------------------------------------------------------
+
+    cache.incr("counter")
+    cache.decr("counter")
+
+✔ Safe and atomic (no race conditions)
+
+--------------------------------------------------------
+🔹 10. Connection Pool Insight
+--------------------------------------------------------
+
+You don’t manually create pools here because:
+
+    django-redis internally manages pooling via redis-py
+    Controlled via:
+
+        "CONNECTION_POOL_KWARGS": {
+            "max_connections": 50
+        }
+
+--------------------------------------------------------
+🔹 11. Common Pitfalls
+--------------------------------------------------------
+
+    ❌ Using default serializer (pickle) blindly
+    ✔ Prefer JSON for interoperability
+
+    ❌ No KEY_PREFIX in multi-env setups
+    ✔ Prevents staging/prod collision
+
+    ❌ Unlimited connections
+    ✔ Always cap max_connections
+
+    ❌ Huge objects in cache
+    ✔ Keep payloads lean
+
+--------------------------------------------------------
+🔹 12. Minimal vs Production
+--------------------------------------------------------
+
+    | Aspect      | Minimal  | Production |
+    | ----------- | -------  | ---------- |
+    | Backend     | ✅       | ✅         |
+    | Pool config | ❌       | ✅         |
+    | Serializer  | ❌       | ✅         |
+    | Prefix      | ❌       | ✅         |
+    | Timeout     | basic    | tuned      |
+
+
+--------------------------------------------------------
+🔚 Summary
+--------------------------------------------------------
+
+    CACHES is the entry point for Django caching
+    django-redis bridges Django ↔ Redis efficiently
+    
+    Use:
+        connection pool tuning
+        key prefixing
+        TTL discipline
+
+    Redis gives you:
+
+        O(1) access
+        atomic ops
+        high concurrency support

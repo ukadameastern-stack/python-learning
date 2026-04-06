@@ -1,0 +1,185 @@
+12. Failure queues + on_failure callbacks;
+===========================================
+
+In RQ / django-rq, failures are first-class: every exception moves 
+the job to a failure registry (failure queue), 
+and you can hook custom logic via on_failure callbacks.
+
+
+🔹 1. Failure Queue (Failure Registry)
+
+
+When a job raises an exception:
+
+    queued → started → ❌ failed
+
+RQ automatically:
+
+    Stores the job in FailedJobRegistry
+    Saves:
+        exception
+        traceback
+        job metadata
+
+
+🔸 Inspect Failed Jobs
+
+
+    from rq.registry import FailedJobRegistry
+    import django_rq
+
+    queue = django_rq.get_queue("default")
+    registry = FailedJobRegistry(queue=queue)
+
+    failed_job_ids = registry.get_job_ids()
+
+
+🔸 Fetch a Failed Job
+
+
+    from rq.job import Job
+
+    job = Job.fetch(job_id, connection=queue.connection)
+
+    print(job.exc_info)  # full traceback
+
+
+🔹 2. Retrying Failed Jobs
+
+
+    from rq import Retry
+
+    django_rq.enqueue(
+        send_webhook,
+        booking_id,
+        retry=Retry(max=3, interval=[10, 30, 60])
+    )
+
+👉 Behavior:
+
+    Retry up to 3 times
+    Wait 10s → 30s → 60s
+
+
+🔹 3. on_failure Callback (Critical Feature)
+
+
+You can attach a handler when a job fails.
+
+🔸 Define Callback
+
+    def handle_failure(job, connection, type, value, traceback):
+        print(f"Job {job.id} failed due to {value}")
+
+🔸 Attach to Job
+
+    django_rq.enqueue(
+        send_webhook,
+        booking_id,
+        on_failure=handle_failure
+    )
+
+
+🔹 4. Real Use Cases for on_failure
+
+
+✔ Logging
+
+    def log_failure(job, connection, type, value, traceback):
+        logger.error(f"Job {job.id} failed: {value}")
+
+✔ Alerting (Slack / Email)
+
+    def notify_failure(job, connection, type, value, traceback):
+        send_alert(f"Job {job.id} failed: {value}")
+
+✔ Compensating Actions
+
+    def rollback_booking(job, connection, type, value, traceback):
+        booking_id = job.args[0]
+        cancel_booking(booking_id)
+
+
+🔹 5. Using with @job Decorator
+
+
+    from django_rq import job
+
+    def failure_handler(job, connection, type, value, traceback):
+        print("failed:", job.id)
+
+    @job("webhooks", on_failure=failure_handler)
+    def send_webhook(booking_id):
+        raise Exception("Webhook failed")
+
+
+🔹 6. Failure Queue vs Retry
+
+    | Feature       | Purpose              |
+    | ------------- | -------------------- |
+    | Retry         | automatic recovery   |
+    | Failure queue | inspection/debugging |
+    | on_failure    | custom reaction      |
+
+
+🔹 7. Production Pattern
+
+
+For something like webhooks:
+
+    @job("webhooks", retry=Retry(max=5, interval=[10, 30, 60, 120]))
+    def send_webhook(...):
+        ...
+
+With failure handler:
+
+    def alert_failure(...):
+        send_slack_alert(...)
+
+👉 Flow:
+
+    Fail → Retry → Retry → Retry → Final Fail → on_failure → Alert
+
+
+🔹 8. Cleaning Failed Jobs
+
+
+    registry.remove(job_id, delete_job=True)
+
+👉 Prevents Redis from filling up
+
+
+🔹 9. Common Pitfalls
+
+    ❌ No retry strategy
+    → transient failures become permanent
+
+    ❌ Ignoring failure queue
+    → silent errors
+
+    ❌ Heavy logic in on_failure
+    → can cause cascading failures
+
+
+🔹 10. Mental Model
+
+
+    Failure queue = “error inbox”
+    Retry = “auto-retry system”
+    on_failure = “custom error handler”
+
+
+🔚 Summary
+
+
+    Failed jobs go to failure registry
+        Use:
+        Retry → automatic retries
+        on_failure → custom handling
+    Always monitor failures in production
+
+
+🔹 One-Line Rule
+
+
+    Every background job must have a failure strategy

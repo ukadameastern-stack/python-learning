@@ -1,0 +1,182 @@
+9. django-rq: 
+RQ_QUEUES in settings / 
+django_rq.enqueue() / 
+@job decorator; 
+==========================================================================
+
+🔹 1. Install
+
+    pip install django-rq
+
+
+🔹 2. Configure RQ_QUEUES in settings.py
+
+
+    RQ_QUEUES = {
+        "default": {
+            "HOST": "127.0.0.1",
+            "PORT": 6379,
+            "DB": 0,
+            "DEFAULT_TIMEOUT": 300,
+        },
+        "emails": {
+            "HOST": "127.0.0.1",
+            "PORT": 6379,
+            "DB": 0,
+            "DEFAULT_TIMEOUT": 200,
+        },
+    }
+
+🔸 Add to INSTALLED_APPS
+
+    INSTALLED_APPS = [
+        ...
+        "django_rq",
+    ]
+
+
+🔹 3. Enqueue Jobs (django_rq.enqueue)
+
+
+    import django_rq
+
+    def send_email(user_id):
+        print("sending email", user_id)
+
+    # enqueue
+    django_rq.enqueue(send_email, 42)
+
+
+🔸 Specify Queue
+
+    django_rq.enqueue(send_email, 42, queue="emails")
+
+
+🔹 4. Using Queue Object (More Control)
+
+
+    import django_rq
+
+    queue = django_rq.get_queue("default")
+
+    job = queue.enqueue(send_email, 42)    
+
+
+🔹 5. @job Decorator (Cleanest Way)
+
+
+    from django_rq import job
+
+    @job
+    def send_email(user_id):
+        print("sending email", user_id)
+
+Call it:
+
+    send_email.delay(42)
+
+🔸 Custom Queue with Decorator
+
+    @job("emails")
+    def send_email(user_id):
+        ...   
+
+
+🔹 6. Job Options
+
+
+    django_rq.enqueue(
+        send_email,
+        42,
+        job_timeout=60,
+        result_ttl=500,
+    )
+
+
+🔹 7. Running Workers
+
+
+    python manage.py rqworker default
+
+Multiple queues:
+
+    python manage.py rqworker default emails      
+
+
+🔹 8. Monitoring Dashboard
+
+
+    python manage.py rqworker
+    python manage.py rqstats
+
+Or add URL:
+
+    # urls.py
+    import django_rq
+
+    urlpatterns = [
+        path("django-rq/", include(django_rq.urls)),
+    ]
+
+👉 Visit:
+
+    /django-rq/
+
+
+🔹 9. Real Django Example (Your Booking System)
+
+
+    # tasks.py
+    from django_rq import job
+
+    @job
+    def send_booking_email(booking_id):
+        print("email sent", booking_id)
+
+    ---------------------------------------
+
+    # views.py
+    def create_booking(request):
+        booking = Booking.objects.create(...)
+
+        send_booking_email.delay(booking.id)  # async
+
+        return Response({"status": "ok"})
+
+
+🔹 10. Mental Model
+
+
+    Django → django-rq → RQ → Redis → Worker → Execute
+
+
+🔹 11. Common Pitfalls
+
+
+    ❌ Forgetting to start worker
+    ✔ Always run rqworker
+
+    ❌ Blocking tasks inside tasks
+    ✔ Keep tasks small and independent
+
+    ❌ Using same queue for everything
+    ✔ Separate queues (emails, webhooks, etc.)
+
+
+🔚 Summary
+
+
+    RQ_QUEUES → defines Redis queues
+    django_rq.enqueue() → push jobs
+    @job → clean async task definition
+    rqworker → executes jobs
+
+
+🔹 When to Use
+
+
+Use **django-rq when:
+
+    You want simple async jobs
+    You already use Redis
+    You don’t need Celery-level complexity

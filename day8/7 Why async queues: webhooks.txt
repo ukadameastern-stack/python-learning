@@ -1,0 +1,207 @@
+7. Why async queues: 
+webhooks / 
+emails /
+slow API calls must not block HTTP responses;
+======================================================
+
+Async queues exist to decouple slow, non-critical work from the 
+request–response cycle so your HTTP endpoints stay fast, reliable, 
+and scalable.
+
+----------------------------------------------
+🔹 Core Problem
+----------------------------------------------
+
+In a typical Django view:
+
+    def create_booking(request):
+        booking = save_to_db()
+
+        send_email()          # slow
+        call_payment_api()    # slow
+        send_webhook()        # unpredictable
+
+        return Response({"ok": True})
+
+👉 This causes:
+
+    High latency (user waits)
+    Timeouts (client/proxy limits)
+    Poor throughput (workers blocked)
+
+----------------------------------------------
+🔹 Solution: Async Queue (Background Jobs)
+----------------------------------------------
+
+Move slow work to a queue using tools like:
+
+    Celery
+    Redis (broker)
+    (alternatives: RQ, Dramatiq)
+
+✔ Refactored Flow
+
+    def create_booking(request):
+        booking = save_to_db()
+
+        send_email_task.delay(booking.id)
+        send_webhook_task.delay(booking.id)
+
+        return Response({"ok": True})  # fast response
+
+----------------------------------------------
+🔹 Why Async Queues Are Needed
+----------------------------------------------
+
+1. Webhooks (Unreliable + Slow)
+
+    requests.post(third_party_url)
+
+Problems:
+
+    Third-party may be slow/down
+    Network latency unpredictable
+
+👉 With queue:
+
+    Retry automatically
+    Doesn’t block user response
+
+2. Emails (I/O Bound)
+
+Sending email involves:
+
+    SMTP handshake
+    Network round trips
+
+👉 Typical latency: 200ms–2s
+
+✔ Should always be async
+
+3. Slow External APIs
+
+Examples:
+
+    Payment gateways
+    Maps / geolocation APIs
+    Analytics services
+
+Problems:
+
+    Rate limits
+    Variable latency
+    Failures
+
+👉 Queue allows:
+
+    Retries
+    Backoff strategies
+
+----------------------------------------------
+🔹 Architectural Benefit
+----------------------------------------------
+
+Without Queue
+
+    Client → Django → DB → Email → API → Response ❌ slow
+
+With Queue
+
+    Client → Django → DB → Response ✅ fast
+                        ↓
+                    Queue → Worker → Email/API/Webhook  
+
+----------------------------------------------
+🔹 Key Benefits
+----------------------------------------------
+
+✔ 1. Reduced Latency
+
+    User gets response immediately
+
+✔ 2. Better Throughput
+
+    Workers handle background jobs separately
+
+✔ 3. Reliability (Retries)
+
+    @shared_task(bind=True, max_retries=3)
+    def send_webhook(self, booking_id):
+        try:
+            ...
+        except Exception:
+            self.retry(countdown=10)
+
+✔ 4. Fault Isolation
+
+    If email service fails:
+
+        App still works
+        Jobs retry later    
+
+✔ 5. Scalability
+
+You can scale workers independently:
+
+    Web servers: 2 → 10
+    Workers:     2 → 50
+
+----------------------------------------------
+🔹 When NOT to Use Async
+----------------------------------------------
+
+Avoid queue if:
+
+    Task is extremely fast (<5ms)
+    Result is required immediately
+    Strong consistency is required    
+
+----------------------------------------------
+🔹 Real Example (Your Booking System)
+----------------------------------------------
+
+Synchronous ❌
+
+    def book():
+        create_booking()
+        send_confirmation_email()
+        notify_partner_webhook() 
+
+Asynchronous ✅
+
+    def book():
+        booking = create_booking()
+
+        send_email.delay(booking.id)
+        send_webhook.delay(booking.id)
+
+        return success_response()
+
+----------------------------------------------
+🔹 Mental Model
+----------------------------------------------
+
+Think in terms of:
+
+    | Type          | Execution              |
+    | ------------- | ---------------------- |
+    | Critical path | Sync (DB write)        |
+    | Side effects  | Async (email, webhook) |
+
+----------------------------------------------
+🔚 Summary
+----------------------------------------------
+
+Async queues are required because:
+
+    Webhooks → unpredictable latency
+    Emails → slow I/O
+    External APIs → unreliable
+
+👉 All of these must not block HTTP responses
+
+----------------------------------------------
+🔹 One-Line Rule
+----------------------------------------------
+
+    If it doesn’t need to happen before responding → send it to a queue

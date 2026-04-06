@@ -1,0 +1,386 @@
+redis-py: direct Redis usage / connection pools
+-------------------------------------------------
+
+When you use Redis from Python, 
+the standard client is redis-py (installed via pip install redis). 
+It supports both direct connections and connection pooling, 
+which is critical for performance in real systems.
+
+-------------------------------------------------
+🔹 1. Direct Redis Usage (Basic Connection)
+-------------------------------------------------
+
+    import redis
+
+    r = redis.Redis(
+        host="localhost",
+        port=6379,
+        db=0,
+        decode_responses=True  # returns str instead of bytes
+    )
+
+    # Basic operations
+    r.set("name", "Uday")
+    print(r.get("name"))  # Uday
+
+✔ What happens here?
+
+    A client instance is created
+    Internally uses a connection pool (default) even if you don’t specify one
+    Commands are sent synchronously
+
+----------------------------------------------------------    
+🔹 2. Explicit Connection Pool (Important for Production)
+----------------------------------------------------------
+
+
+Instead of relying on default pooling, you should control it explicitly:
+
+    import redis
+
+    pool = redis.ConnectionPool(
+        host="localhost",
+        port=6379,
+        db=0,
+        max_connections=10
+    )
+
+    r = redis.Redis(connection_pool=pool)
+
+    r.set("key", "value")
+    print(r.get("key"))
+
+
+🔸 Why Connection Pooling Matters
+
+    Without pooling:
+
+        Every request → new TCP connection ❌ (slow, expensive)
+
+    With pooling:
+
+        Reuses connections ✅
+        Reduces latency
+        Prevents connection exhaustion
+
+------------------------------------------
+🔹 3. Advanced Pool Configuration
+------------------------------------------
+
+    pool = redis.ConnectionPool(
+        host="localhost",
+        port=6379,
+        db=0,
+        max_connections=20,
+        socket_timeout=5,
+        socket_connect_timeout=5
+    )
+
+--------------------------------------------------    
+🔹 4. Blocking Connection Pool (Safer Under Load)
+--------------------------------------------------
+
+    pool = redis.BlockingConnectionPool(
+        host="localhost",
+        port=6379,
+        db=0,
+        max_connections=5,
+        timeout=10  # wait time if pool is exhausted
+    )
+
+    r = redis.Redis(connection_pool=pool)
+
+✔ Behavior:
+
+If all connections are in use:
+
+    Waits instead of failing immediately
+    Good for APIs / Django apps
+
+--------------------------------------------------------
+🔹 5. Using Redis in a Web App (Django/FastAPI Pattern)
+--------------------------------------------------------
+
+Typical pattern:
+
+    # redis_client.py
+    import redis
+
+    pool = redis.ConnectionPool(host="localhost", port=6379, db=0)
+
+    redis_client = redis.Redis(connection_pool=pool)
+
+Then reuse everywhere:
+
+    from redis_client import redis_client
+
+    redis_client.set("token", "abc123")
+
+👉 Ensures:
+
+    Single shared pool
+    Efficient resource usage    
+
+----------------------------------------
+6. Pipelines (Batching Commands)
+----------------------------------------
+
+    pipe = r.pipeline()
+
+    pipe.set("a", 1)
+    pipe.set("b", 2)
+    pipe.get("a")
+
+    results = pipe.execute()
+
+✔ Reduces round trips → faster
+
+----------------------------------------
+🔹 7. Common Pitfalls
+----------------------------------------
+
+❌ Creating Redis client inside every request
+✔ Create once, reuse globally
+
+❌ Not setting timeouts
+✔ Always configure timeouts in production
+
+❌ Ignoring max connections
+✔ Tune based on traffic
+
+----------------------------------------
+🔹 When to Use What
+----------------------------------------
+
+| Scenario         | Approach         |
+| ---------------- | ---------------- |
+| Small script     | Direct `Redis()` |
+| Web app          | Connection pool  |
+| High concurrency | Blocking pool    |
+| Bulk ops         | Pipelines        |
+
+----------------------------------------
+🔚 Summary
+----------------------------------------
+
+    redis.Redis() → simple interface
+    ConnectionPool → performance & scalability
+    BlockingConnectionPool → safe under heavy load
+    Always reuse connections in backend apps
+
+
+===================================================================================
+Redis caching pattern in Django (very useful for your backend work)
+===================================================================================
+
+Using Redis as a cache in Django is a high-leverage optimization—
+you reduce database load, improve latency, 
+and handle higher concurrency cleanly. 
+The standard approach is integrating Django’s cache framework with Redis 
+via django-redis on top of redis-py.
+
+----------------------------------------
+🔹 1. Install Dependencies
+----------------------------------------
+    
+    pip install redis django-redis
+
+----------------------------------------
+🔹 2. Configure Redis Cache in Django
+----------------------------------------
+
+    settings.py
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": "redis://127.0.0.1:6379/1",  # DB 1 for cache
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            }
+        }
+    }
+
+👉 Best practice:
+
+Use separate Redis DBs:
+
+    0 → app logic
+    1 → cache
+    2 → sessions (optional)
+
+----------------------------------------    
+🔹 3. Basic Cache Usage
+----------------------------------------
+
+    from django.core.cache import cache
+
+    # Set cache
+    cache.set("user_1", {"name": "Uday"}, timeout=300)
+
+    # Get cache
+    data = cache.get("user_1")
+
+    # Delete
+    cache.delete("user_1")
+
+-------------------------------------------------
+🔹 4. Core Caching Pattern (Read-Through Cache)
+-------------------------------------------------
+
+This is the most important pattern 👇
+
+    from django.core.cache import cache
+    from .models import User
+
+    def get_user(user_id):
+        cache_key = f"user:{user_id}"
+
+        data = cache.get(cache_key)
+        if data:
+            return data  # ✅ cache hit
+
+        # ❌ cache miss → DB query
+        user = User.objects.get(id=user_id)
+
+        data = {
+            "id": user.id,
+            "name": user.username
+        }
+
+        cache.set(cache_key, data, timeout=300)
+        return data
+
+       
+🔸 Why this works
+
+
+    | Step           | Benefit             |
+    | -------------- | ------------------- |
+    | Cache first    | Avoid DB hit        |
+    | Fallback to DB | Always correct      |
+    | Store result   | Faster next request |
+
+------------------------------------------------- 
+🔹 5. Cache Invalidation (Critical)
+------------------------------------------------- 
+
+Cache is useless if stale ❗
+
+    def update_user(user_id, new_name):
+        user = User.objects.get(id=user_id)
+        user.username = new_name
+        user.save()
+
+        cache.delete(f"user:{user_id}")  # invalidate cache
+
+👉 Rule:
+
+    Write → Invalidate cache
+
+------------------------------------------------- 
+🔹 6. Decorator-Based View Caching
+------------------------------------------------- 
+
+    from django.views.decorators.cache import cache_page
+
+    @cache_page(60 * 5)  # 5 minutes
+    def campsite_list(request):
+        ...
+
+✔ Good for:
+
+    Read-heavy APIs
+    Public endpoints
+
+------------------------------------------------- 
+🔹 7. Low-Level Key Design (Important)
+------------------------------------------------- 
+
+Bad key ❌
+
+    "user"
+
+Good key ✅
+
+    "user:{id}"
+    "booking:{id}"
+    "campsite:list:page:{page}"
+
+👉 Think like:
+
+    Namespaced
+    Predictable
+    Unique
+
+------------------------------------------------- 
+🔹 8. Advanced Pattern: Cache Aside (Recommended)
+------------------------------------------------- 
+
+This is what you're already doing above, but formalized:
+
+    Client → Cache → DB (if miss) → Cache → Client
+
+✔ Most common in Django apps
+
+------------------------------------------------- 
+🔹 9. Avoid These Mistakes
+------------------------------------------------- 
+
+❌ Caching entire ORM objects
+✔ Cache serialized data (dict/JSON)
+
+❌ No TTL (timeout)
+✔ Always set expiration
+
+❌ Forgetting invalidation
+✔ Always clear/update cache on write
+
+❌ Over-caching everything
+✔ Cache only expensive queries
+
+------------------------------------------------- 
+🔹 10. Real Django Example (Your Booking System)
+------------------------------------------------- 
+
+    def get_booking(booking_id):
+        key = f"booking:{booking_id}"
+
+        booking = cache.get(key)
+        if booking:
+            return booking
+
+        obj = Booking.objects.select_related("user", "campsite").get(id=booking_id)
+
+        data = {
+            "id": str(obj.id),
+            "user": obj.user.username,
+            "campsite": obj.campsite.name,
+        }
+
+        cache.set(key, data, timeout=600)
+        return data
+
+-------------------------------------------------         
+🔹 11. When to Cache
+------------------------------------------------- 
+
+Cache this ✅
+
+    Expensive DB queries
+    Aggregations
+    External API calls
+
+Don’t cache ❌
+
+    Frequently changing data
+    Sensitive data (auth/session unless handled properly)
+
+------------------------------------------------- 
+🔚 Summary
+------------------------------------------------- 
+
+    Use Redis via django-redis
+    Follow cache-aside pattern
+    Always handle invalidation
+    Design clean cache keys
+    Use timeouts wisely    

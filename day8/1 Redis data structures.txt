@@ -1,0 +1,176 @@
+1. Redis data structures: strings / hashes / lists / sets / sorted sets and when to use each; 
+2. TTL and key expiry; 
+3. redis-py: direct Redis usage / connection pools; 
+4. Django cache framework with Redis backend: django-redis / CACHES setting; 
+5. django-constance: dynamic runtime config in Redis without redeploying; 
+6. Cache invalidation strategies: TTL vs explicit deletion
+7. Why async queues: webhooks / emails / slow API calls must not block HTTP responses; 
+8. RQ: Queue / enqueue() / job lifecycle (queued → started → finished/failed); 
+9. django-rq: RQ_QUEUES in settings / django_rq.enqueue() / @job decorator; 
+10. Multiple named queues (default vs webhooks); 
+11. Starting workers: rqworker <queue_name>; 
+12. Failure queues + on_failure callbacks; 
+13. RQ Scheduler for delayed/recurring jobs
+
+
+------------------------------------------------------------------------------
+1. Redis data structures: 
+strings / 
+hashes / 
+lists / 
+sets / 
+sorted sets 
+when to use each; 
+
+
+1) Strings
+-----------
+
+What it is:
+
+    A binary-safe value (max ~512MB). Can store text, numbers, serialized JSON, etc.
+
+    Typical operations: SET, GET, INCR, DECR, APPEND
+
+Use cases:
+
+    Caching simple values (HTML, API response, tokens)
+    Counters (page views, likes) → INCR
+    Feature flags / toggles
+    Session IDs → SETEX (with TTL)
+
+When to use:
+
+    Data is atomic and doesn’t need partial updates
+    You frequently overwrite entire value
+
+
+2) Hashes
+-----------
+
+What it is:
+
+    A map/dictionary of field → value pairs (like a JSON object, but flat).
+
+    Typical operations: HSET, HGET, HGETALL, HINCRBY
+
+Use cases:
+
+    User profiles
+    Product metadata
+    Storing structured objects
+
+Example:
+
+    user:1001 → {
+    name: "Uday",
+    age: "30",
+    city: "Pune"
+    }
+
+When to use:
+
+    You need partial updates (update only one field)
+    Memory-efficient for small objects
+    Avoid serializing/deserializing whole JSON
+
+3) Lists
+---------
+
+What it is:
+
+    Ordered collection (linked list behavior).
+
+    Typical operations: LPUSH, RPUSH, LPOP, LRANGE
+
+Use cases:
+
+    Queues (FIFO) → RPUSH + LPOP
+    Stacks (LIFO) → LPUSH + LPOP
+    Activity logs / recent items
+
+When to use:
+
+    Order matters
+    You process items sequentially
+    You need push/pop from ends    
+
+
+4) Sets
+-----------
+
+What it is:
+
+    Unordered collection of unique elements
+
+    Typical operations: SADD, SMEMBERS, SISMEMBER, SINTER
+
+Use cases:
+
+    Unique tags
+    User permissions
+    Tracking unique visitors
+    Mutual relationships (followers, likes)
+
+Example:
+
+    post:1:likes → {user1, user2, user3}
+
+When to use:
+
+    You need uniqueness
+    Order does NOT matter
+    You need set operations (union/intersection)
+
+
+5) Sorted Sets (ZSETs)
+----------------------
+
+What it is:
+
+    Set + score → elements are ordered by score
+
+    Typical operations: ZADD, ZRANGE, ZREVRANGE, ZINCRBY
+
+Use cases:
+
+    Leaderboards (score-based ranking)
+    Top N items
+    Time-based ordering (timestamps as score)
+    Priority queues
+
+Example:
+
+    leaderboard → {
+        user1: 1500,
+        user2: 1200,
+        user3: 1800
+    }
+
+When to use:
+
+    You need ordering + uniqueness
+    You query top/bottom elements
+    You need ranking (rank, score)
+
+
+Quick Decision Matrix
+-------------------------
+
+| Requirement                    | Data Structure |
+| ------------------------------ | -------------- |
+| Simple value / cache           | String         |
+| Structured object              | Hash           |
+| Ordered sequence (queue/stack) | List           |
+| Unique collection              | Set            |
+| Ranked / scored data           | Sorted Set     |
+
+
+Practical Backend Examples (Django context)
+--------------------------------------------
+
+    JWT blacklist / session store → String (with TTL)
+    User profile cache → Hash
+    Background job queue → List (or better: Redis Streams / Celery)
+    Post likes → Set
+    Top campsites ranking → Sorted Set

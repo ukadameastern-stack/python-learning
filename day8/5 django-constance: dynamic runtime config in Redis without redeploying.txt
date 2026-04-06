@@ -1,0 +1,198 @@
+django-constance: dynamic runtime config in Redis without redeploying
+=========================================================================
+
+django-constance lets you treat configuration as runtime data 
+instead of static settings.py.
+When paired with Redis, you can change feature flags, limits, toggles, etc. 
+instantly—no redeploy required.
+
+---------------------------------------
+🔹 1. Why django-constance?
+---------------------------------------
+
+Typical Django:
+
+    # settings.py (static)
+    MAX_BOOKING_DAYS = 7
+
+Problem:
+
+    Requires code change + redeploy
+
+With Constance:
+
+    from constance import config
+
+    if config.MAX_BOOKING_DAYS > 5:
+        ...
+
+✔ Editable at runtime (Admin UI / API)
+✔ Stored in Redis → fast + centralized
+
+---------------------------------------
+🔹 2. Install & Setup
+---------------------------------------
+
+    pip install django-constance[redis]
+
+settings.py
+
+    INSTALLED_APPS = [
+        ...
+        "constance",
+        "constance.backends.redis",
+    ]
+
+---------------------------------------
+🔹 3. Redis Backend Configuration
+---------------------------------------
+
+    CONSTANCE_BACKEND = "constance.backends.redis.RedisBackend"
+
+    CONSTANCE_REDIS_CONNECTION = {
+        "host": "127.0.0.1",
+        "port": 6379,
+        "db": 2,  # separate DB for config
+    }
+
+👉 Best practice:
+
+    db=1 → cache
+    db=2 → constance config
+
+---------------------------------------
+🔹 4. Define Dynamic Settings
+---------------------------------------
+
+    CONSTANCE_CONFIG = {
+        "MAX_BOOKING_DAYS": (7, "Max allowed booking duration"),
+        "ENABLE_PAYMENTS": (True, "Toggle payment system"),
+        "SURGE_MULTIPLIER": (1.5, "Dynamic pricing multiplier"),
+    }
+
+Optional type hints:
+
+    CONSTANCE_CONFIG = {
+        "MAX_BOOKING_DAYS": (7, "Max days", int),
+    }
+
+---------------------------------------
+🔹 5. Usage in Code
+---------------------------------------
+
+    from constance import config
+
+    def create_booking(days):
+        if days > config.MAX_BOOKING_DAYS:
+            raise ValueError("Too many days")
+
+✔ Value is fetched from Redis at runtime
+✔ No restart required
+
+---------------------------------------
+🔹 6. Admin UI (Key Feature)
+---------------------------------------
+
+Add:
+
+    INSTALLED_APPS += ["constance.backends.database"]  # optional fallback
+
+Then go to:
+
+    /admin/constance/config/
+
+👉 You can:
+
+    Change values live
+    Toggle flags instantly
+
+---------------------------------------
+🔹 7. Real Use Cases (High Value)
+---------------------------------------
+
+✅ Feature Flags
+
+    if config.ENABLE_NEW_UI:
+        return new_ui()
+
+✅ Rate Limits
+
+    if requests_per_min > config.API_RATE_LIMIT:
+        block_user()
+
+✅ Pricing / Business Logic
+
+    price = base_price * config.SURGE_MULTIPLIER
+
+✅ Kill Switch
+
+    if not config.ENABLE_PAYMENTS:
+        return "Payments disabled"
+
+---------------------------------------    
+🔹 8. Under the Hood
+---------------------------------------
+
+Flow:
+
+    Your code
+    ↓
+    constance.config
+    ↓
+    Redis (via backend)
+
+✔ Cached in memory per process
+✔ Synced via Redis
+
+---------------------------------------
+🔹 9. Signals (Advanced)
+---------------------------------------
+
+React to config changes:
+
+    from constance.signals import config_updated
+
+    def config_changed(sender, key, old_value, new_value, **kwargs):
+        print(f"{key} changed from {old_value} → {new_value}")
+
+    config_updated.connect(config_changed)
+
+---------------------------------------
+🔹 10. Pitfalls
+---------------------------------------
+
+❌ Storing secrets (API keys, passwords)
+✔ Use environment variables for secrets
+
+❌ Overusing for static config
+✔ Only use for dynamic/runtime values
+
+❌ No validation
+✔ Add type hints / manual validation
+
+---------------------------------------
+🔹 11. Comparison
+---------------------------------------
+
+| Feature         | settings.py | django-constance |
+| --------------- | ----------- | ---------------- |
+| Runtime change  | ❌           | ✅                |
+| Requires deploy | ✅           | ❌                |
+| Admin editable  | ❌           | ✅                |
+| Backed by Redis | ❌           | ✅                |
+
+---------------------------------------
+🔚 Summary
+---------------------------------------
+
+    django-constance = runtime config layer
+    Redis backend = fast + centralized
+
+    Ideal for:
+        Feature flags
+        Limits
+        Business tuning
+        
+    Not for:
+        Secrets
+        Static constants

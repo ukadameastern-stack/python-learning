@@ -1,0 +1,169 @@
+11. Starting workers: rqworker <queue_name>; 
+============================================
+
+Starting workers is what actually executes jobs 
+from your queues in django-rq / RQ.
+
+
+🔹 1. Basic Command
+
+
+    python manage.py rqworker <queue_name>
+
+Example
+
+    python manage.py rqworker default
+
+👉 This starts a worker that:
+
+    Listens to default queue
+    Pulls jobs
+    Executes them
+
+
+🔹 2. Multiple Queues in One Worker
+
+
+    python manage.py rqworker default webhooks
+
+👉 Behavior:
+
+    Checks default first
+    Then webhooks
+
+✔ Priority is left → right    
+
+
+🔹 3. Separate Workers per Queue (Recommended)
+
+
+    # Terminal 1
+    python manage.py rqworker default
+
+    # Terminal 2
+    python manage.py rqworker webhooks
+
+✔ Why this is better
+
+    | Benefit     | Explanation                       |
+    | ----------- | --------------------------------- |
+    | Isolation   | Slow webhooks don’t block default |
+    | Scalability | Scale queues independently        |
+    | Reliability | Failures don’t cascade            |
+
+
+🔹 4. Worker Lifecycle
+
+When you run:
+
+    python manage.py rqworker webhooks
+
+Flow:
+
+    Start worker
+        ↓
+    Connect to Redis
+        ↓
+    Listen for jobs
+        ↓
+    Pick job
+        ↓
+    Execute function
+        ↓
+    Mark finished / failed
+        ↓
+    Repeat (infinite loop)
+
+
+🔹 5. Scaling Workers
+
+
+You can run multiple workers:
+
+    python manage.py rqworker webhooks
+    python manage.py rqworker webhooks
+    python manage.py rqworker webhooks
+
+👉 Now 3 jobs can run in parallel
+
+
+🔹 6. Production Setup (Important)
+
+
+Don’t run workers manually in production.
+
+Use a process manager:
+
+    Options:
+        supervisord
+        systemd
+        Docker / Kubernetes
+
+
+🔹 7. Example: Supervisor Config
+
+
+    [program:rqworker-webhooks]
+    command=python manage.py rqworker webhooks
+    numprocs=3
+    autostart=true
+    autorestart=true   
+
+🔹 8. Logging & Debugging
+
+
+Worker logs everything:
+
+    Worker rq:worker:123 started
+    Job abc123 started
+    Job abc123 finished
+
+👉 If jobs are not running:
+
+    Check worker logs first        
+
+
+🔹 9. Common Mistakes
+
+
+    ❌ Forgetting to start worker
+    → Jobs stay in “queued” forever
+
+    ❌ Running only one worker for all queues
+    → Bottlenecks
+
+    ❌ Blocking code inside jobs
+    → Worker gets stuck     
+
+
+🔹 10. Real Setup (Recommended)
+
+
+    default queue   → 2 workers
+    webhooks queue  → 5 workers
+    emails queue    → 2 workers
+
+
+🔹 Mental Model
+
+
+    Queue = storage
+    Worker = CPU
+
+No worker → nothing executes ❌
+More workers → more throughput ✅
+
+
+🔚 Summary
+
+
+    rqworker <queue> → starts job processor
+    Multiple queues → priority order
+    Separate workers → best practice
+    Scale workers based on workload
+
+
+🔹 One-Line Rule
+
+
+    If your jobs are not running → your worker is not running

@@ -1,0 +1,217 @@
+Cache invalidation strategies: TTL vs explicit deletion
+=========================================================
+
+Cache invalidation is where most caching systems fail. 
+In Django + Redis setups, you’ll primarily choose between:
+
+    TTL (time-based expiration)
+    Explicit deletion (event-based invalidation)
+
+Both map cleanly onto Redis and Django’s cache framework.
+
+--------------------------------------------------------
+🔹 1. TTL (Time-To-Live)
+--------------------------------------------------------
+
+Concept
+
+You attach an expiry to a key:
+
+    from django.core.cache import cache
+
+    cache.set("user:42", data, timeout=300)  # expires in 5 min
+
+✔ Characteristics
+
+    | Property    | Behavior                      |
+    | ----------- | ----------------------------- |
+    | Simplicity  | Very high                     |
+    | Consistency | Eventually consistent         |
+    | Risk        | Stale data (for TTL duration) |
+
+
+✔ When to Use TTL
+
+    Data changes infrequently
+    Slight staleness is acceptable
+    Read-heavy workloads
+
+Example
+
+    def get_campsite_list():
+        key = "campsite:list"
+
+        data = cache.get(key)
+        if data:
+            return data
+
+        data = list(Campsite.objects.values())
+        cache.set(key, data, timeout=600)  # 10 min
+        return data
+
+❌ Problem
+
+If data updates right after caching:
+
+    DB updated → cache still stale for 10 mins ❌
+
+--------------------------------------------------------
+🔹 2. Explicit Deletion (Write Invalidation)
+--------------------------------------------------------
+
+Concept
+
+You manually remove cache when data changes:
+
+    cache.delete("user:42")
+
+✔ Characteristics
+
+    | Property    | Behavior                  |
+    | ----------- | ------------------------- |
+    | Consistency | Strong                    |
+    | Complexity  | Higher                    |
+    | Risk        | Missing invalidation bugs |
+
+✔ When to Use
+
+    Data must be fresh
+    Critical business logic
+    User-specific data
+
+✔ Example
+
+    def update_user(user_id, name):
+        user = User.objects.get(id=user_id)
+        user.username = name
+        user.save()
+
+        cache.delete(f"user:{user_id}")  # invalidate
+
+❌ Problem
+
+If you forget invalidation:
+
+    DB updated → cache never updated ❌ (worse than TTL)
+
+--------------------------------------------------------
+🔹 3. TTL vs Explicit Deletion (Comparison)
+--------------------------------------------------------
+
+    | Factor     | TTL                      | Explicit Deletion       |
+    | ---------- | ------------------------ | ----------------------- |
+    | Simplicity | ✅ Easy                  | ❌ More logic           |
+    | Freshness  | ❌ Eventually consistent | ✅ Strong consistency   |
+    | Risk       | Stale window             | Human error             |
+    | Best for   | Lists, analytics         | User data, transactions |
+
+
+--------------------------------------------------------
+🔹 4. Best Practice → Combine Both
+--------------------------------------------------------
+
+This is what production systems do 👇
+
+Pattern: TTL + Invalidation
+
+    # Read
+    cache.set("user:42", data, timeout=300)
+
+    # Write
+    cache.delete("user:42")
+
+✔ Why Combine?
+
+    TTL → safety net
+    Deletion → correctness
+
+👉 If deletion fails → TTL still clears stale data later
+
+--------------------------------------------------------
+🔹 5. Advanced Strategy: Versioned Keys
+--------------------------------------------------------
+
+Instead of deleting:
+
+    user:42:v1
+
+On update:
+
+    user:42:v2
+
+👉 Old cache becomes irrelevant automatically
+
+--------------------------------------------------------
+🔹 6. Cache Aside Pattern (Recommended)
+--------------------------------------------------------
+
+Flow:
+
+    Read:
+        Cache → DB → Cache
+
+    Write:
+        DB → Cache delete
+
+✔ Used in most Django apps
+
+--------------------------------------------------------
+🔹 7. Common Mistakes
+--------------------------------------------------------
+
+    ❌ No TTL at all
+    ❌ Forgetting invalidation
+    ❌ Over-caching dynamic data
+    ❌ Using same key for different queries
+
+--------------------------------------------------------
+🔹 8. Real Example (Your Booking System)
+--------------------------------------------------------
+
+Read
+
+    def get_booking(id):
+        key = f"booking:{id}"
+
+        data = cache.get(key)
+        if data:
+            return data
+
+        obj = Booking.objects.get(id=id)
+        data = {"id": str(obj.id), "user": obj.user.username}
+
+        cache.set(key, data, timeout=600)
+        return data
+
+Write
+
+    def update_booking(id, new_date):
+        booking = Booking.objects.get(id=id)
+        booking.start_date = new_date
+        booking.save()
+
+        cache.delete(f"booking:{id}")
+
+--------------------------------------------------------    
+🔚 Final Recommendation
+--------------------------------------------------------
+
+Use:
+
+    ✔ TTL only
+        Non-critical, read-heavy data
+
+    ✔ Explicit deletion
+        Critical, frequently updated data
+        
+    ✔ BOTH (ideal)
+        Most production APIs
+
+--------------------------------------------------------
+🔹 Mental Model
+--------------------------------------------------------
+
+    TTL = “eventually correct”
+    Deletion = “immediately correct”
+    Combined = “safe + reliable”
+

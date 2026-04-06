@@ -1,0 +1,201 @@
+8. RQ: 
+Queue / 
+enqueue() / 
+job lifecycle (queued → started → finished/failed); 
+==============================================================================
+
+RQ is a lightweight background job system built on Redis. 
+It’s simpler than Celery and fits well for typical Django workloads.
+
+--------------------------------------------------------
+🔹 1. Core Concepts in RQ
+--------------------------------------------------------
+
+Queue
+
+A named FIFO structure in Redis that holds jobs.
+
+    from rq import Queue
+    from redis import Redis
+
+    redis_conn = Redis()
+    q = Queue("default", connection=redis_conn)
+        
+Enqueue (Adding a Job)
+
+    job = q.enqueue(send_email, user_id=42)
+
+👉 This:
+
+    Serializes the function call
+    Pushes it into Redis
+    Returns a Job object
+
+--------------------------------------------------------
+🔹 2. Job Lifecycle (Very Important)
+--------------------------------------------------------
+
+A job moves through these states:
+
+    queued → started → finished
+                ↘
+                failed
+
+🔸 1. Queued
+
+    Job is waiting in Redis queue
+
+        Stored in Redis list
+        Not yet picked by worker
+
+🔸 2. Started
+
+    Worker picks job and begins execution
+
+        Moves to “in-progress”
+        Has worker assigned
+
+🔸 3. Finished
+
+    Execution successful
+
+        Result stored (optional)
+        Job marked complete
+
+🔸 4. Failed
+
+    Exception occurred
+
+        Error + traceback stored
+        Can be retried
+
+--------------------------------------------------------
+🔹 3. Visual Flow
+--------------------------------------------------------
+
+    enqueue()
+        ↓
+    [ Redis Queue ]
+        ↓
+    Worker picks job
+        ↓
+    Execute function
+        ↓
+    ✔ success → finished
+    ❌ error   → failed
+
+--------------------------------------------------------
+🔹 4. Worker Process
+--------------------------------------------------------
+
+Run worker:
+
+    rq worker
+
+👉 Worker:
+
+    Polls Redis
+    Executes jobs
+    Updates job status    
+
+--------------------------------------------------------
+🔹 5. Example End-to-End
+--------------------------------------------------------
+
+Task function
+
+    def send_email(user_id):
+        print(f"Sending email to {user_id}")
+
+Enqueue
+
+    job = q.enqueue(send_email, 42)
+    print(job.id)
+
+Worker executes
+
+    queued → started → finished
+
+--------------------------------------------------------
+🔹 6. Inspecting Job State
+--------------------------------------------------------
+
+    from rq.job import Job
+
+    job = Job.fetch(job_id, connection=redis_conn)
+
+    print(job.get_status())   # queued / started / finished / failed
+    print(job.result)         # return value
+
+--------------------------------------------------------
+🔹 7. Handling Failures
+--------------------------------------------------------
+
+    from rq import Retry
+
+    q.enqueue(
+        send_email,
+        42,
+        retry=Retry(max=3, interval=[10, 30, 60])
+    )
+
+👉 Retry strategy:
+
+    3 attempts
+    delays: 10s → 30s → 60s    
+
+--------------------------------------------------------
+🔹 8. Timeouts (Important)
+--------------------------------------------------------
+
+    q.enqueue(send_email, 42, job_timeout=10)
+
+👉 If job runs > 10s → marked failed  
+
+--------------------------------------------------------
+🔹 9. Scheduling Jobs
+--------------------------------------------------------
+
+    from datetime import timedelta
+
+    q.enqueue_in(timedelta(seconds=30), send_email, 42)
+
+👉 Delayed execution
+
+--------------------------------------------------------
+🔹 10. Why RQ is Popular
+--------------------------------------------------------
+
+    | Feature           | Benefit       |
+    | ----------------- | ------------- |
+    | Simple API        | Easy to learn |
+    | Redis-based       | Fast          |
+    | No complex config | Minimal setup |
+    | Python-native     | No DSL        |
+
+--------------------------------------------------------
+🔹 11. RQ vs Celery (Quick View)
+--------------------------------------------------------
+
+
+    | Feature    | RQ                | Celery        |
+    | ---------- | ----------------- | ------------- |
+    | Complexity | Low ✅            | High          |
+    | Features   | Basic             | Advanced      |
+    | Use case   | Small/medium apps | Large systems |
+
+--------------------------------------------------------
+🔚 Summary
+--------------------------------------------------------
+
+    Queue → holds jobs
+    enqueue() → pushes job
+    Worker → executes job
+    Lifecycle:
+    queued → started → finished / failed
+
+--------------------------------------------------------
+🔹 Mental Model
+--------------------------------------------------------
+
+    RQ = “function call → stored in Redis → executed later by worker”

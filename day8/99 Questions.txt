@@ -1,0 +1,21 @@
+--------------------------------------------------------
+1. Redis URL Variants
+--------------------------------------------------------
+
+    redis://localhost:6379/1        # normal
+    redis://:password@localhost:6379/1   # with auth
+    rediss://localhost:6379/1       # SSL/TLS
+
+2. http://127.0.0.1:8001/api/campsites?page=1&page_size=7
+    why these much quieries are executed?
+
+3. Don’t run workers manually in production.
+
+    Use a process manager:
+
+        Options:
+            supervisord
+            systemd
+            Docker / Kubernetes
+
+4. 

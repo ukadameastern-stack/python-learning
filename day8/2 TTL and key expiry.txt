@@ -1,0 +1,163 @@
+TTL and key expiry:
+
+TTL and key expiry in Redis are closely related 
+but conceptually distinct:
+
+    TTL = metadata (how long remains)
+
+    Expiry = the mechanism (when the key is actually deleted)
+
+Let’s break this down precisely.
+
+
+-----------------------------
+🔹 1) TTL (Time-To-Live)
+-----------------------------
+
+TTL tells you how many seconds a key has left before it expires.
+
+    TTL mykey
+
+Return values:
+
+    > 0 → seconds remaining
+    -1 → key exists but no expiry set
+    -2 → key does not exist
+
+👉 TTL is read-only introspection
+
+------------------------------------------
+🔹 2) Setting Expiry (Key Expiration)
+------------------------------------------
+
+Expiry defines when Redis should delete the key automatically.
+
+Ways to set expiry:
+    a) At creation time
+
+        SET mykey "value" EX 60
+
+    b) After creation
+
+    E   XPIRE mykey 60
+
+    c) Exact timestamp
+
+        EXPIREAT mykey 1712400000
+
+    d) Millisecond precision
+
+        PEXPIRE mykey 60000
+
+------------------------------
+🔹 3) What Happens on Expiry?
+------------------------------
+
+When TTL reaches 0:
+
+    Key is deleted automatically
+    No event is triggered unless configured
+
+--------------------------------------------
+ 🔹 4) How Redis Handles Expiry Internally
+--------------------------------------------
+
+Redis uses two strategies:
+
+✅ Passive Expiry
+
+    Key expires only when accessed
+    If expired → deleted immediately
+
+✅ Active Expiry
+
+    Background process randomly samples keys
+    Deletes expired ones proactively
+
+👉 This hybrid approach avoids CPU spikes while keeping memory clean.   
+
+--------------------------------------------
+🔹 5) Resetting TTL (Important Gotcha)
+--------------------------------------------
+
+If you overwrite a key:
+
+    SET mykey "new_value"
+
+👉 TTL is removed ❌
+
+To preserve expiry:
+
+    SET mykey "new_value" KEEPTTL
+
+--------------------------------------------
+🔹 6) Removing Expiry
+--------------------------------------------
+
+    PERSIST mykey
+
+👉 Key becomes permanent (TTL removed)
+
+--------------------------------------------
+🔹 7) Updating TTL
+--------------------------------------------
+
+    EXPIRE mykey 120
+
+👉 Resets TTL to 120 seconds
+
+--------------------------------------------
+🔹 8) Common Patterns
+--------------------------------------------
+
+✅ Sliding expiration (session extension)
+
+    redis.expire(session_key, 300)  # refresh on each request
+
+✅ Fixed expiration (cache)
+
+    redis.set(key, value, ex=300)
+
+✅ Check before using
+
+    ttl = redis.ttl(key)
+    if ttl < 0:
+        # handle missing or no-expiry case
+
+--------------------------------------------
+ 🔹 9) Practical Backend Examples
+--------------------------------------------
+
+Session management
+
+    TTL = session timeout
+    Expiry ensures auto logout
+
+    OTP system
+
+        redis.set("otp:123", code, ex=120)
+
+    Automatically invalid after 2 min
+
+    Rate limiting
+    
+        redis.incr(ip_key)
+        redis.expire(ip_key, 60)
+
+--------------------------------------------
+🔹 10) Key Insight
+--------------------------------------------
+
+TTL is observability, expiry is lifecycle control.
+
+TTL → “How long left?”
+Expiry → “When should this die?”
+
+--------------------------------------------
+🔹 Common Mistakes
+--------------------------------------------
+
+    ❌ Forgetting TTL → memory leaks
+    ❌ Overwriting key → TTL lost
+    ❌ Very long TTL → stale cache
+    ❌ No jitter → cache stampede       
