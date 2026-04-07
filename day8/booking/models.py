@@ -74,8 +74,8 @@ class Booking(TimestampMixin, models.Model):
     def save(self, *args, **kwargs):
         # Keep range field in sync
         if self.start_date and self.end_date:
-            from psycopg.types.range import DateRange
-            self.date_range = DateRange(self.start_date, self.end_date, bounds="[)")
+            self.date_range = (self.start_date, self.end_date)
+            
         super().save(*args, **kwargs)
 
     class Meta:

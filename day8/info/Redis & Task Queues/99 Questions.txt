@@ -20,4 +20,10 @@
 
 4. How the cron will be deployed on production?
 
-5.
+5. conda create -n django_day8 python=3.11
+   conda activate django_day8
+
+6.API rate limiting
+
+7. Which tool we can use for PostregSQL? dbeaver?
+

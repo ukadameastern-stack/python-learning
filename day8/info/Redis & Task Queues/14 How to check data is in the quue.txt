@@ -1,0 +1,193 @@
+----------------------------------------------------------
+✅ 1. Check via Django Shell (Most Direct)
+----------------------------------------------------------
+
+python manage.py shell
+
+    import django_rq
+
+    queue = django_rq.get_queue("webhooks")  # or "default", "emails"
+
+# Number of jobs waiting
+
+    print(queue.count)
+
+# See jobs
+
+    jobs = queue.jobs
+    for job in jobs:
+        print(job.id, job.func_name, job.args, job.enqueued_at)
+
+
+🔍 Check failed jobs
+
+    import django_rq
+    from rq.registry import FailedJobRegistry
+
+    queue = django_rq.get_queue("webhooks")
+    registry = FailedJobRegistry(queue=queue)
+
+    failed_job_ids = registry.get_job_ids()
+
+🔍 Check finished jobs
+
+    from django_rq import get_queue
+
+    queue = get_queue("webhooks")
+    registry = queue.finished_job_registry
+
+    print(registry.count)
+
+    for job_id in registry.get_job_ids():
+        print(job_id)
+
+----------------------------------------------------------
+✅ 2. Use Django Admin UI (Best Visual Way)
+----------------------------------------------------------
+
+You already have:
+
+    "django_rq"
+
+Add this to urls.py:
+
+    import django_rq
+    from django.urls import path, include
+
+    urlpatterns = [
+        path("django-rq/", include("django_rq.urls")),
+    ]
+
+Then open:
+
+    http://127.0.0.1:8001/django-rq/
+
+👉 You’ll see:
+
+    Queues
+    Jobs
+    Failed jobs
+    Workers
+
+----------------------------------------------------------    
+✅ 3. Check Redis Directly (Low-level)
+----------------------------------------------------------
+
+    redis-cli
+
+List keys
+
+    keys *
+
+You’ll see:
+
+    rq:queue:webhooks
+    rq:job:<id>
+    rq:worker:<id>
+
+Inspect queue
+
+    lrange rq:queue:webhooks 0 -1
+
+👉 Shows job IDs in queue
+
+----------------------------------------------------------
+⚠️ Important: Why Queue Might Be Empty
+----------------------------------------------------------
+
+
+If you see no jobs, possible reasons:
+
+❌ 1. Worker already consumed jobs
+------------------------------------
+
+RQ worker runs:
+
+    python manage.py rqworker webhooks
+
+👉 It immediately processes jobs → queue becomes empty
+
+❌ 2. Wrong queue name
+------------------------
+
+You enqueue:
+
+    send_booking_webhook.delay(...)
+
+But worker listening to:
+
+    rqworker default
+
+👉 mismatch → job never processed
+
+❌ 3. Redis DB mismatch
+-------------------------
+
+Your config:
+
+    RQ_QUEUES = {
+        "webhooks": {
+            "DB": 0,
+        }
+    }
+
+But checking different DB → nothing shows
+
+----------------------------------------------------------
+✅ 4. Debug Your Specific Case
+----------------------------------------------------------
+
+You are using:
+
+    send_booking_webhook.delay(str(booking.id))
+
+So check:
+
+    import django_rq
+
+    queue = django_rq.get_queue("default")  # OR "webhooks"
+    print(queue.count)
+
+
+🔥 Best Debug Strategy (Use This)
+---------------------------------
+
+Step 1: Stop worker
+
+    # don't run rqworker
+
+Step 2: Create booking → enqueue job
+
+Step 3: Check queue
+
+    queue.count  # should be > 0
+
+Step 4: Start worker
+
+    python manage.py rqworker webhooks
+
+👉 Watch job execute
+
+
+🚀 Production Tip
+------------------
+
+Use:
+
+    pip install rq-dashboard
+
+Run:
+
+    rq-dashboard
+
+👉 Real-time queue monitoring UI
+
+----------------------------------------------------------
+✅ Summary
+----------------------------------------------------------
+
+    | Method       | Use                  |
+    | ------------ | -------------------- |
+    | Django shell | Debugging            |
+    | django-rq UI | Visual monitoring    |
+    | redis-cli    | Low-level inspection |

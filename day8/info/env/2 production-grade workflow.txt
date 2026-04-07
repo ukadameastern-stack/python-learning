@@ -1,0 +1,241 @@
+🚀 1. Project Bootstrap (Clean + Isolated)
+
+    # create env
+    conda create -n proj_env python=3.11
+    conda activate proj_env
+
+    # create project
+    django-admin startproject config
+    cd config
+
+    # create app
+    python manage.py startapp booking
+
+👉 Use config/ as root (better than project name duplication)
+
+📁 2. Production-Oriented Structure
+
+Refactor immediately:
+
+    config/
+    ├── config/
+    │   ├── settings/
+    │   │   ├── base.py
+    │   │   ├── dev.py
+    │   │   └── prod.py
+    │   ├── urls.py
+    │   └── wsgi.py
+    ├── booking/
+    ├── manage.py
+    ├── .env
+    ├── requirements.txt
+
+
+⚙️ 3. Split Settings (MANDATORY for production)
+
+base.py
+
+Common config only
+
+dev.py
+
+    from .base import *
+    DEBUG = True
+
+prod.py
+
+    from .base import *
+    DEBUG = False
+    ALLOWED_HOSTS = ["your-domain.com"]
+
+
+🔐 4. Environment Variables
+
+
+Install:
+
+    pip install python-dotenv
+
+.env:
+
+    SECRET_KEY=super-secret
+    DEBUG=True
+
+    DB_ENGINE=django.db.backends.postgresql
+    DB_NAME=booking_db
+    DB_USER=postgres
+    DB_PASSWORD=postgres
+    DB_HOST=localhost
+    DB_PORT=5432
+
+
+📦 5. Install Core Dependencies
+
+
+    python -m pip install \
+    django==4.2.29 \
+    djangorestframework \
+    psycopg2-binary \
+    django-redis \
+    django-rq \
+    "django-constance[redis]" \
+    python-dotenv \
+    django-simple-history \
+    django-debug-toolbar
+
+
+🗄️ 6. Database Setup (PostgreSQL)
+
+
+python manage.py migrate
+
+Create superuser:
+
+    python manage.py createsuperuser
+
+
+🔧 7. Add Apps (Clean)
+
+
+    INSTALLED_APPS = [
+        ...
+        "rest_framework",
+        "booking",
+        "constance",
+        "django_rq",
+    ]
+
+
+⚡ 8. Redis Integration (Cache + RQ + Constance)
+
+You already did this well. Keep:
+
+    Cache → DB 1
+    Sessions → DB 2
+    Constance → DB 3
+    RQ → DB 0
+
+👉 This is production-grade separation
+
+
+🔄 9. Migrations Workflow (Correct Usage)
+
+
+# after model changes
+
+    python manage.py makemigrations booking
+    python manage.py migrate
+
+
+🧪 10. Run Services (Multi-process setup)
+
+
+    Terminal 1 – Django
+    python manage.py runserver
+    Terminal 2 – Redis
+    redis-server
+    Terminal 3 – RQ Worker
+    python manage.py rqworker default emails webhooks
+
+
+📡 11. API Development
+
+
+Create:
+
+    # serializers.py
+    # views.py
+    # urls.py
+
+Use:
+
+    CreateAPIView
+    ListAPIView
+    JWT auth (you already added)
+
+
+🧱 12. Production Hardening
+
+
+✅ Turn OFF debug
+
+    DEBUG = False
+
+✅ Allowed hosts
+
+    ALLOWED_HOSTS = ["yourdomain.com"]
+
+✅ Static files
+
+    python manage.py collectstatic
+
+✅ Use Gunicorn
+
+    pip install gunicorn
+
+Run:
+
+    gunicorn config.wsgi:application
+
+
+🐳 13. (Real Production) Use Docker
+
+
+Typical stack:
+
+    Django (Gunicorn)
+    Redis
+    PostgreSQL
+    Nginx
+
+
+📄 14. Freeze Dependencies
+
+
+    pip freeze > requirements.txt
+
+
+🔥 15. Golden Production Rules
+❌ Don’ts
+
+    Don’t use SQLite
+    Don’t use DEBUG=True
+    Don’t use base environment
+    Don’t mix Redis DBs
+
+✅ Do’s
+
+    Use PostgreSQL
+    Use environment variables
+    Use isolated env (conda/venv/docker)
+    Use background workers (RQ/Celery)
+
+🧠 Full Lifecycle Summary
+
+    conda create -n proj_env python=3.11
+    conda activate proj_env
+
+    django-admin startproject config
+    cd config
+
+    python manage.py startapp booking
+
+    pip install -r requirements.txt
+
+    python manage.py makemigrations
+    python manage.py migrate
+
+    python manage.py runserver
+    python manage.py rqworker
+
+
+🚀 What You’re Building (Reality Check)
+
+
+With your current setup, you’re already close to:
+
+    Scalable backend
+    Async job processing (RQ)
+    Config management (Constance)
+    Redis-backed infra
+    PostgreSQL with indexing

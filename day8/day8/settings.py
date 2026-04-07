@@ -46,11 +46,9 @@ INSTALLED_APPS = [
     "debug_toolbar",
     "booking",
     "constance",
-    "constance.backends.redis",
     "django_rq",
+    "rest_framework",
 ]
-
-INSTALLED_APPS += ["constance.backends.database"]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -74,6 +72,7 @@ TEMPLATES = [
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.debug",
+                'django.template.context_processors.request',
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
@@ -252,19 +251,19 @@ RQ_QUEUES = {
     "default": {
         "HOST": "127.0.0.1",
         "PORT": 6379,
-        "DB": 0,
+        "DB": 4,
         "DEFAULT_TIMEOUT": 300,
     },
     "emails": {
         "HOST": "127.0.0.1",
         "PORT": 6379,
-        "DB": 0,
+        "DB": 4,
         "DEFAULT_TIMEOUT": 200,
     },
     "webhooks": {
         "HOST": "127.0.0.1",
         "PORT": 6379,
-        "DB": 0,
+        "DB": 4,
         "DEFAULT_TIMEOUT": 600,
     },
 }
