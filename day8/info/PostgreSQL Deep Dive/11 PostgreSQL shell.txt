@@ -1,0 +1,60 @@
+✅ Step 1: Check actual PostgreSQL cluster
+
+    pg_lsclusters
+
+Example output:
+
+Ver Cluster Port Status Owner    Data directory
+15  main    5432 online postgres /var/lib/postgresql/15/main
+
+👉 Status must be online
+
+🚀 Step 2: Open PostgreSQL shell
+
+Option 1 (recommended)
+
+    sudo -u postgres psql
+
+👉 This directly logs you into:
+
+postgres=#
+
+Option 2 (with user)
+    
+    psql -U postgres
+
+👉 May ask for password
+
+🎯 Step 3: Open a database
+
+Inside psql:
+
+    \l          -- list databases
+    \c postgres -- connect to database
+
+📋 Step 4: Basic commands
+
+    \dt         -- list tables
+    \d table    -- describe table
+    \q          -- quit
+
+
+⚠️ If it fails
+❌ “connection refused”
+
+Start the cluster:
+
+    sudo systemctl start postgresql
+
+Or specific version:
+
+    sudo systemctl start postgresql@15-main
+
+💡 Quick summary
+
+active (exited) → OK ✅
+Use:
+
+    sudo -u postgres psql
+
+to open DB

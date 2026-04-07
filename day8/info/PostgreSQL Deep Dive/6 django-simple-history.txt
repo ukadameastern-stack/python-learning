@@ -1,0 +1,218 @@
+Using audit trails is a strong move for production systems 
+(especially bookings). The library django-simple-history 
+gives you automatic versioning of model changes with minimal code.
+
+Let’s break it down precisely.
+
+--------------------------------------
+🧠 1️⃣ What HistoricalRecords() does
+--------------------------------------
+
+When you add:
+
+    from simple_history.models import HistoricalRecords
+
+    class Booking(models.Model):
+        campsite = models.ForeignKey(Campsite, on_delete=models.CASCADE)
+        date = models.DateField()
+
+        history = HistoricalRecords()
+
+👉 Django automatically tracks:
+
+    CREATE
+    UPDATE
+    DELETE
+
+Every change = a new historical row
+
+--------------------------------------
+🧱 2️⃣ What tables it creates
+--------------------------------------
+
+For each model, it creates a separate table:
+
+    app_model → camps_booking
+    history table → camps_historicalbooking
+
+Structure of historical table
+--------------------------------------
+
+Example: camps_historicalbooking
+
+Columns include:
+
+    All original fields:
+    
+        id
+        campsite_id
+        date
+    
+    Extra audit fields:
+
+        history_id → primary key
+        history_date → timestamp of change
+        history_type:
+
+            "+" → created
+            "~" → updated
+            "-" → deleted
+
+        history_user → who made the change (if configured)
+
+--------------------------------------
+🔍 3️⃣ Querying history
+--------------------------------------
+
+Basic usage
+
+    booking = Booking.objects.get(id=1)
+
+    history = booking.history.all()
+
+👉 Returns all versions (latest first)
+
+Example output
+
+    [
+        {date: "2026-04-03", history_type: "~"},
+        {date: "2026-04-02", history_type: "+"}
+    ]
+
+Get previous version
+--------------------------------------
+
+    booking.history.first()       # latest
+    booking.history.last()        # oldest
+
+Compare versions
+--------------------------------------
+
+    old = booking.history.all()[1]
+    new = booking.history.all()[0]
+
+    print(old.date, new.date)
+
+--------------------------------------    
+🔄 4️⃣ Revert to previous state
+--------------------------------------
+
+    old_record = booking.history.last()
+    old_record.instance.save()
+
+👉 Restores old data
+
+--------------------------------------
+👤 5️⃣ Track user who made change
+--------------------------------------
+
+
+Setup middleware
+
+    MIDDLEWARE = [
+        ...
+        'simple_history.middleware.HistoryRequestMiddleware',
+    ]
+
+👉 Automatically attaches request.user
+
+Then:
+
+    booking.history.first().history_user
+
+--------------------------------------    
+⚡ 6️⃣ Filtering history
+--------------------------------------
+
+    # All updates only
+    booking.history.filter(history_type="~")
+
+    # Changes after a date
+    booking.history.filter(history_date__gte="2026-04-01")
+
+-------------------------------------------    
+🧱 7️⃣ Query all historical records (global)
+-------------------------------------------
+
+
+    from camps.models import HistoricalBooking
+
+    HistoricalBooking.objects.all()
+
+-------------------------------------------    
+📊 8️⃣ Use cases (your project)
+-------------------------------------------
+
+For your campsite booking system:
+
+    ✅ Audit trail
+
+        Who changed booking?
+        When was it modified?
+
+    ✅ Debugging
+
+        “Why did booking date change?”
+
+    ✅ Recovery
+
+        Restore accidentally modified bookings
+
+-------------------------------------------
+⚠️ 9️⃣ Important considerations
+-------------------------------------------
+
+❗ Table size grows fast
+
+Every update = new row
+
+👉 Solution:
+
+    Periodic cleanup
+    Archive old history
+
+❗ No constraints enforced
+
+    History table is for tracking only, not validation
+
+❗ Performance
+
+    Reads are fine
+    Writes slightly slower (extra insert)
+
+-------------------------------------------
+🚀 10️⃣ Advanced features
+-------------------------------------------
+
+Custom table name
+    
+    history = HistoricalRecords(table_name="booking_history")
+
+Exclude fields
+    
+    history = HistoricalRecords(excluded_fields=["updated_at"])
+
+Add reason for change
+
+    booking.history.first().history_change_reason
+
+-------------------------------------------    
+🧩 Final takeaway
+-------------------------------------------
+
+    HistoricalRecords() → auto audit system
+    Creates historical<Model> table
+    .history.all() → full version timeline
+
+👉 For production:
+
+    Main table → current state
+    History table → full timeline
+
+💡 Recommendation for your system
+
+Use it on:
+
+    Booking ✅
+    Campsite (optional)
+    Payments (if added later)

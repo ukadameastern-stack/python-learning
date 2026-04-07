@@ -1,0 +1,273 @@
+Here’s how to query a JSONB field from Django shell and 
+inspect the execution plan with .explain() 
+using your Booking model (extra_data is JSONB).
+
+---------------------------
+✅ 1. Open Django shell
+---------------------------
+
+    python manage.py shell
+
+---------------------------    
+✅ 2. Basic JSONB Queries
+---------------------------
+
+🔹 __contains
+    
+    Booking.objects.filter(extra_data__contains={"meal": "veg"})
+
+🔹 __has_key
+
+    Booking.objects.filter(extra_data__has_key="wifi")
+
+🔹 Nested lookup
+
+    Booking.objects.filter(extra_data__owner__name="John")
+
+✅ 3. Use .explain() (IMPORTANT)
+
+Basic explain
+
+    qs = Booking.objects.filter(extra_data__contains={"meal": "veg"})
+    print(qs.explain())
+
+🔍 Example Output (simplified)
+
+    Seq Scan on booking  (cost=0.00..12.00 rows=2 width=...)
+    Filter: (extra_data @> '{"meal": "veg"}')
+
+👉 Means:
+
+    ❌ Sequential scan → slow for large data
+
+✅ 4. After Adding GIN Index
+
+You already have:
+
+    GinIndex(fields=["extra_data"], name="booking_extra_gin")
+
+Run again:
+
+    print(qs.explain())
+
+🔥 Expected Output
+
+   Bitmap Index Scan on booking_extra_gin
+
+👉 Means:
+
+    ✅ Index is being used
+    
+        🚀 Fast query
+
+✅ 5. Use ANALYZE (Real execution stats)
+
+    print(qs.explain(analyze=True))
+
+Output includes:
+
+    actual time
+    rows scanned
+    loops
+
+Example:
+
+Bitmap Heap Scan on booking
+  Recheck Cond: (extra_data @> '{"meal": "veg"}')
+  -> Bitmap Index Scan on booking_extra_gin
+
+✅ 6. Pretty Format (Better readability)
+
+    print(qs.explain(format="json"))
+
+🧠 What to Look For
+
+    | Output            | Meaning          |
+    | ----------------- | ---------------- |
+    | Seq Scan          | ❌ slow           |
+    | Index Scan        | ✅ good           |
+    | Bitmap Index Scan | ✅ best for JSONB |
+    | cost              | planner estimate |
+    | actual time       | real performance |
+
+
+🚀 Real Debug Example (Your Case)
+
+    qs = Booking.objects.filter(extra_data__has_key="wifi")
+    print(qs.explain(analyze=True))
+
+⚠️ Common Mistakes
+    1. Index not used
+    
+        GIN index missing ❌
+        Query not compatible ❌
+    
+    2. Small table
+
+        👉 PostgreSQL may ignore index (normal behavior)
+
+💡 Pro Tip
+
+Force heavy query:
+
+    Booking.objects.bulk_create([...])  # add many rows
+
+Then test .explain() again
+
+✅ Summary
+
+    | Step              | Command                            |
+    | ----------------- | ---------------------------------- |
+    | Query JSONB       | `filter(extra_data__contains=...)` |
+    | Explain           | `.explain()`                       |
+    | Real stats        | `.explain(analyze=True)`           |
+    | Check index usage | look for `Bitmap Index Scan`       |
+
+
+--------------------------------------------------------------------
+
+📄 Your Query Plan
+
+    Seq Scan on booking_booking  (cost=0.00..11.88 rows=1 width=488) (actual time=0.022..0.023 rows=1 loops=1)
+    Filter: (extra_data @> '{"meal": "veg"}'::jsonb)
+    Rows Removed by Filter: 1
+    Planning Time: 0.066 ms
+    Execution Time: 0.037 ms
+
+🔍 Line 1 (Core Execution Plan)
+
+    Seq Scan on booking_booking  
+    (cost=0.00..11.88 rows=1 width=488) 
+    (actual time=0.022..0.023 rows=1 loops=1)
+
+✅ Seq Scan on booking_booking
+
+    Sequential Scan
+    PostgreSQL is scanning the table row by row
+
+❌ No index used
+✅ cost=0.00..11.88
+
+👉 This is planner estimate (NOT actual time)
+
+    0.00 → startup cost (cost before returning first row)
+    11.88 → total estimated cost to complete query
+
+📌 Important:
+
+These are relative units, not milliseconds
+Used internally by optimizer
+
+✅ rows=1
+
+👉 Planner estimate:
+
+PostgreSQL expects 1 row to match
+✅ width=488
+
+👉 Estimated size of each row in bytes
+
+Includes:
+    all selected columns
+    JSON fields (large)
+    Bigger width → more memory usage
+
+✅ actual time=0.022..0.023
+
+👉 Real execution time (in milliseconds)
+
+    0.022 → time to get first row
+    0.023 → time to finish query
+
+    ✔ Very fast
+
+✅ rows=1
+
+    👉 Actual rows returned
+
+    ✔ Matches estimate → good query planning
+
+✅ loops=1
+
+    👉 Number of times this step ran
+
+    1 → executed once
+    Higher values → nested loops
+
+🔍 Line 2 (Filter Condition)
+
+    Filter: (extra_data @> '{"meal": "veg"}'::jsonb)
+    ✅ Meaning
+        @> → JSONB contains operator
+
+        Query:
+
+        extra_data contains {"meal": "veg"}
+
+    👉 PostgreSQL checks each row’s JSON
+
+🔍 Line 3
+
+    Rows Removed by Filter: 1
+
+✅ Meaning
+
+    1 row did NOT match condition
+    It was scanned but filtered out
+
+    👉 So total rows scanned:
+
+        2 rows (1 match + 1 removed)
+
+🔍 Line 4
+
+    Planning Time: 0.066 ms
+
+    ✅ Meaning
+
+    Time PostgreSQL took to:
+
+    parse query
+    choose execution plan
+
+🔍 Line 5
+
+    Execution Time: 0.037 ms
+    ✅ Meaning
+
+    Total time to:
+
+    execute query
+    return result
+
+🧠 Full Interpretation (Simple)
+
+👉 PostgreSQL did this:
+
+    Scanned full table (only 2 rows)
+    Checked JSON condition on each row
+    Found 1 matching row
+    Ignored 1 row
+    Finished in ~0.03 ms
+    ⚡ Why No Index Used?
+
+Because:
+
+Table is tiny (2 rows)
+Sequential scan is faster than index lookup
+
+📊 Summary Table
+
+    | Field           | Meaning              |
+    | --------------- | -------------------- |
+    | Seq Scan        | full table scan      |
+    | cost            | estimated work       |
+    | rows (estimate) | expected matches     |
+    | width           | row size (bytes)     |
+    | actual time     | real execution time  |
+    | loops           | number of executions |
+    | Filter          | condition applied    |
+    | Rows Removed    | filtered rows        |
+    | Planning Time   | optimizer time       |
+    | Execution Time  | total runtime        |
+

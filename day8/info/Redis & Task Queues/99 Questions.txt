@@ -18,4 +18,6 @@
             systemd
             Docker / Kubernetes
 
-4. 
+4. How the cron will be deployed on production?
+
+5.

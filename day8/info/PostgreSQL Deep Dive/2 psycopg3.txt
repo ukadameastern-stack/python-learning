@@ -1,0 +1,454 @@
+psycopg3:
+
+Here’s a focused, production-oriented walkthrough of psycopg3 usage 
+with PostgreSQL—covering connections, cursors, and safe parameterized 
+queries.
+
+----------------------------------------
+1️⃣ Connecting to PostgreSQL (psycopg3)
+----------------------------------------
+
+Install:
+
+    pip install psycopg[binary]
+
+Basic connection
+
+    import psycopg
+
+    conn = psycopg.connect(
+        "dbname=campsite_db user=campsite_user password=strongpassword host=localhost port=5432"
+    )
+
+Recommended (context manager)
+
+    import psycopg
+
+    with psycopg.connect(
+        "dbname=campsite_db user=campsite_user password=strongpassword"
+    ) as conn:
+        print("Connected!")
+
+👉 Key behavior:
+
+    Auto-commit = OFF by default
+    Transaction starts automatically
+    Commit/rollback handled when exiting with
+
+----------------------------------------
+2️⃣ Cursors (data access layer)
+----------------------------------------
+
+Basic cursor usage
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM camps_campsite;")
+        rows = cur.fetchall()
+
+Cursor types (important)
+-------------------------
+
+    1. Default cursor (tuple-based)
+
+        cur.execute("SELECT id, name FROM camps_campsite;")
+        for row in cur:
+            print(row[0], row[1])
+
+    2. Dict cursor (cleaner for APIs)
+
+        from psycopg.rows import dict_row
+
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT id, name FROM camps_campsite;")
+            rows = cur.fetchall()
+            print(rows[0]["name"])
+
+    👉 Useful for JSON responses (Django/DRF style)
+
+    3. Server-side cursor (large datasets)
+
+        with conn.cursor(name="stream_cursor") as cur:
+            cur.execute("SELECT * FROM large_table;")
+            for row in cur:
+                process(row)
+
+👉 Avoids loading everything into memory
+
+----------------------------------------
+3️⃣ Parameterized Queries (CRITICAL)
+----------------------------------------
+
+Never do this ❌:
+
+    cur.execute(f"SELECT * FROM users WHERE username = '{username}'")
+
+👉 Vulnerable to SQL injection
+
+Correct way ✅
+
+    cur.execute(
+        "SELECT * FROM users WHERE username = %s",
+        (username,)
+    )
+
+👉 psycopg handles:
+
+    Escaping
+    Type adaptation
+    Security
+
+Multiple parameters
+
+    cur.execute(
+        "SELECT * FROM bookings WHERE campsite_id = %s AND date = %s",
+        (campsite_id, date)
+    )
+
+Named parameters (cleaner)
+
+    cur.execute(
+        """
+        SELECT * FROM bookings
+        WHERE campsite_id = %(cid)s AND date = %(date)s
+        """,
+        {"cid": campsite_id, "date": date}
+    )
+
+----------------------------------------    
+4️⃣ INSERT / UPDATE / DELETE
+----------------------------------------
+
+Insert
+
+    cur.execute(
+        "INSERT INTO camps_campsite (name, location) VALUES (%s, %s)",
+        ("Hill View", "Pune")
+    )
+
+Returning inserted ID
+
+    cur.execute(
+        """
+        INSERT INTO camps_campsite (name, location)
+        VALUES (%s, %s)
+        RETURNING id
+        """,
+        ("Hill View", "Pune")
+    )
+    new_id = cur.fetchone()[0]
+
+Update
+
+    cur.execute(
+        "UPDATE camps_campsite SET name = %s WHERE id = %s",
+        ("Updated Name", campsite_id)
+    )
+
+Delete
+
+    cur.execute(
+        "DELETE FROM bookings WHERE id = %s",
+        (booking_id,)
+    )
+
+----------------------------------------    
+5️⃣ Transactions (very important)
+----------------------------------------
+
+Default behavior:
+
+    with psycopg.connect(...) as conn:
+        with conn.cursor() as cur:
+            cur.execute(...)
+
+Success → auto commit
+Exception → auto rollback
+
+----------------------------------------
+Manual control
+----------------------------------------
+
+    conn = psycopg.connect(...)
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(...)
+        conn.commit()
+    except:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+------------------------------------------------        
+6️⃣ Example: Safe booking insert (your use case)
+------------------------------------------------
+
+    from psycopg.rows import dict_row
+    import psycopg
+
+    def create_booking(user_id, campsite_id, date):
+        with psycopg.connect("dbname=campsite_db user=campsite_user") as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+
+                # Check availability
+                cur.execute(
+                    """
+                    SELECT 1 FROM bookings
+                    WHERE campsite_id = %s AND date = %s
+                    """,
+                    (campsite_id, date)
+                )
+
+                if cur.fetchone():
+                    raise Exception("Already booked")
+
+                # Insert booking
+                cur.execute(
+                    """
+                    INSERT INTO bookings (user_id, campsite_id, date)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                    """,
+                    (user_id, campsite_id, date)
+                )
+
+                return cur.fetchone()["id"]
+
+------------------------------------------------                
+⚡ Advanced tips (production-grade)
+------------------------------------------------
+✔ Use connection pooling
+    from psycopg_pool import ConnectionPool
+
+    pool = ConnectionPool("dbname=campsite_db user=campsite_user")
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+✔ Use prepared statements (auto-handled)
+
+    psycopg3 automatically prepares frequently used queries → performance boost.
+
+✔ Avoid string concatenation always
+
+Even for IN clauses:
+
+    cur.execute(
+        "SELECT * FROM camps WHERE id = ANY(%s)",
+        ([1, 2, 3],)
+    )
+
+------------------------------------------------
+🧩 Key takeaways
+------------------------------------------------
+    Always use %s placeholders (not ?, not f-strings)
+    Use context managers → safe transactions
+    Prefer dict_row for API work
+    Use pooling in production
+
+
+------------------------------------------------
+🧠 When to bypass Django ORM
+
+------------------------------------------------
+
+    Use psycopg3 when:
+
+        High write contention (booking system ✅)
+        Complex queries (window functions, CTEs)
+        Need row-level locking (FOR UPDATE)
+        Performance-critical endpoints
+
+    Keep ORM for:
+
+        Admin panel
+        Simple CRUD
+        Rapid development
+
+
+------------------------------------------------
+🏗️ Architecture (Hybrid Approach)
+
+------------------------------------------------
+
+    Django ORM  → normal endpoints
+    psycopg3    → critical endpoints (booking, payments)
+
+------------------------------------------------
+1️⃣ Install psycopg3 + pooling
+------------------------------------------------
+    
+    pip install psycopg[binary] psycopg_pool
+
+------------------------------------------------
+2️⃣ Create a connection pool (singleton)
+
+------------------------------------------------
+
+Create a file: db/pool.py
+
+    from psycopg_pool import ConnectionPool
+
+    pool = ConnectionPool(
+        conninfo="dbname=campsite_db user=campsite_user password=strongpassword host=localhost",
+        min_size=5,
+        max_size=20,
+    )
+
+👉 This avoids opening DB connections per request (huge performance gain)
+
+------------------------------------------------
+3️⃣ Service layer (IMPORTANT pattern)
+------------------------------------------------
+
+Create: camps/services/booking_service.py
+
+    from psycopg.rows import dict_row
+    from db.pool import pool
+
+    def create_booking(user_id, campsite_id, booking_date):
+        with pool.connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+
+                # Lock campsite row (prevents race conditions)
+                cur.execute(
+                    """
+                    SELECT id FROM camps_campsite
+                    WHERE id = %s
+                    FOR UPDATE
+                    """,
+                    (campsite_id,)
+                )
+
+                # Check existing booking
+                cur.execute(
+                    """
+                    SELECT 1 FROM camps_booking
+                    WHERE campsite_id = %s AND date = %s
+                    """,
+                    (campsite_id, booking_date)
+                )
+
+                if cur.fetchone():
+                    raise Exception("Campsite already booked")
+
+                # Insert booking
+                cur.execute(
+                    """
+                    INSERT INTO camps_booking (user_id, campsite_id, date)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                    """,
+                    (user_id, campsite_id, booking_date)
+                )
+
+                return cur.fetchone()["id"]
+
+------------------------------------------------                
+4️⃣ Use inside Django API view
+------------------------------------------------
+
+Example: BookingCreateAPI
+
+    from rest_framework.views import APIView
+    from rest_framework.response import Response
+    from rest_framework import status
+
+    from camps.services.booking_service import create_booking
+
+    class BookingCreateAPI(APIView):
+
+        def post(self, request):
+            try:
+                booking_id = create_booking(
+                    user_id=request.user.id,
+                    campsite_id=request.data["campsite_id"],
+                    booking_date=request.data["date"]
+                )
+
+                return Response(
+                    {"booking_id": booking_id},
+                    status=status.HTTP_201_CREATED
+                )
+
+            except Exception as e:
+                return Response(
+                    {"error": str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+🔒 Upgrade: Prevent overlaps at DB level (PostgreSQL power)
+
+Instead of relying only on Python checks, add a constraint:
+
+    ALTER TABLE camps_booking
+    ADD CONSTRAINT no_double_booking
+    UNIQUE (campsite_id, date);
+
+👉 Now even if your code fails → DB still protects you
+
+⚡ Even better (advanced PostgreSQL)
+
+For date ranges (multi-day bookings):
+
+    ALTER TABLE camps_booking
+    ADD EXCLUDE USING gist (
+        campsite_id WITH =,
+        daterange(start_date, end_date) WITH &&
+    );
+
+👉 Prevents overlapping bookings automatically
+
+------------------------------------------------
+5️⃣ Performance comparison
+------------------------------------------------
+
+| Operation   | Django ORM | psycopg3        |
+| ----------- | ---------- | --------------- |
+| Simple CRUD | ✅ Good     | ✅ Good        |
+| Bulk insert | ⚠️ Slower  | 🚀 Fast         |
+| Complex SQL | ⚠️ Limited | 🚀 Full control |
+| Locking     | ⚠️ Limited | ✅ Precise      |
+
+------------------------------------------------
+6️⃣ Gotchas (important)
+------------------------------------------------
+❗ Transactions
+
+    psycopg3 pool uses transactions implicitly
+    Don’t forget: each connection() block = transaction
+
+❗ Don’t mix ORM & raw SQL in same transaction
+
+Avoid:
+
+    # BAD
+    Model.objects.create(...)
+    cur.execute(...)
+
+👉 Can cause inconsistent state
+
+❗ Connection leaks
+
+Always use:
+
+    with pool.connection()
+
+------------------------------------------------    
+🚀 Production-grade enhancements
+------------------------------------------------
+
+    Add retry logic for deadlocks
+    Add logging for slow queries
+    Use PgBouncer for scaling
+    Monitor with pg_stat_statements
+
+------------------------------------------------
+🧩 Final takeaway
+------------------------------------------------
+
+For your booking system:
+
+    ORM alone → ❌ risky (race conditions)
+    psycopg3 + PostgreSQL → ✅ safe + fast
+    Hybrid approach → ✅ best of both    

@@ -1,0 +1,279 @@
+Using connection.cursor() in Django 
+gives you direct access to SQL execution against PostgreSQL—bypassing 
+the ORM for performance, precision, and advanced features.
+
+This is essential for:
+
+    Complex queries (CTEs, window functions)
+    Bulk operations / upserts
+    Fine-grained locking (FOR UPDATE)
+    Performance tuning
+
+-----------------------------------------    
+🧠 1️⃣ Basic usage
+-----------------------------------------
+
+    from django.db import connection
+
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT id, name FROM camps_campsite;")
+        rows = cursor.fetchall()
+
+👉 Returns list of tuples:
+
+    [(1, "Hill View"), (2, "River Side")]
+
+-----------------------------------------
+🔐 2️⃣ Parameterized queries (MANDATORY)
+-----------------------------------------
+
+Never do:
+
+    cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")  # ❌
+
+Use:
+
+    cursor.execute(
+        "SELECT * FROM users WHERE id = %s",
+        [user_id]
+    )
+
+👉 Prevents SQL injection
+
+-----------------------------------------
+📦 3️⃣ Fetch methods
+-----------------------------------------
+
+    cursor.fetchone()   # single row
+    cursor.fetchall()   # all rows
+    cursor.fetchmany(10)
+
+-----------------------------------------
+🧾 4️⃣ Get column names
+-----------------------------------------
+
+    columns = [col[0] for col in cursor.description]
+
+Convert to dict:
+
+    rows = cursor.fetchall()
+    result = [dict(zip(columns, row)) for row in rows]
+
+-----------------------------------------    
+⚙️ 5️⃣ INSERT / UPDATE / DELETE
+-----------------------------------------
+Insert
+
+    cursor.execute(
+        """
+        INSERT INTO camps_campsite (name)
+        VALUES (%s)
+        RETURNING id
+        """,
+        ["Hill View"]
+    )
+
+    new_id = cursor.fetchone()[0]
+
+Update
+
+    cursor.execute(
+        "UPDATE camps_campsite SET name = %s WHERE id = %s",
+        ["New Name", campsite_id]
+    )
+
+Delete
+
+    cursor.execute(
+        "DELETE FROM camps_booking WHERE id = %s",
+        [booking_id]
+    )
+
+-----------------------------------------
+🔄 6️⃣ Transactions with raw SQL
+-----------------------------------------
+
+
+Django uses autocommit, but you should explicitly control transactions:
+
+    from django.db import transaction
+
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(...)
+
+👉 Ensures consistency
+
+--------------------------------------------
+🔒 7️⃣ Row-level locking (important for you)
+--------------------------------------------
+
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id FROM camps_campsite
+                WHERE id = %s
+                FOR UPDATE
+                """,
+                [campsite_id]
+            )
+
+👉 Same behavior as select_for_update()
+
+----------------------------------------------
+🚀 8️⃣ Advanced: CTE (Common Table Expression)
+----------------------------------------------
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            WITH booked AS (
+                SELECT campsite_id, COUNT(*) AS total
+                FROM camps_booking
+                GROUP BY campsite_id
+            )
+            SELECT c.id, c.name, b.total
+            FROM camps_campsite c
+            LEFT JOIN booked b ON c.id = b.campsite_id;
+            """
+        )
+
+👉 Hard to express in ORM → easy in SQL
+
+----------------------------------------------
+⚡ 9️⃣ JSONB queries (your use case)
+----------------------------------------------
+
+    cursor.execute(
+        """
+        SELECT * FROM camps_campsite
+        WHERE metadata @> %s
+        """,
+        ['{"wifi": true}']
+    )
+
+----------------------------------------------
+🔥 10️⃣ UPSERT (PostgreSQL superpower)
+----------------------------------------------
+
+    cursor.execute(
+        """
+        INSERT INTO camps_booking (campsite_id, date)
+        VALUES (%s, %s)
+        ON CONFLICT (campsite_id, date)
+        DO NOTHING
+        """,
+        [campsite_id, date]
+    )
+
+👉 Not cleanly supported by ORM → raw SQL shines
+
+----------------------------------------------
+📊 11️⃣ Performance tips
+----------------------------------------------
+
+✔ Use executemany() for bulk inserts
+
+    cursor.executemany(
+        "INSERT INTO camps_campsite (name) VALUES (%s)",
+        [("Hill",), ("Lake",)]
+    )
+
+✔ Avoid N+1 queries
+
+Write joins instead of loops
+
+✔ Use indexes
+    GIN for JSONB
+    B-tree for normal fields
+
+----------------------------------------------    
+⚠️ 12️⃣ Common mistakes
+----------------------------------------------
+
+❌ Forgetting transactions
+
+    cursor.execute(...)  # partial writes risk
+
+❌ Mixing ORM + raw SQL carelessly
+
+    Model.objects.create(...)
+    cursor.execute(...)
+
+👉 Can cause inconsistent state if not inside same transaction
+
+❌ Hardcoding values
+
+    Always parameterize
+
+---------------------------------------------- 
+🧩 13️⃣ When to use raw SQL vs ORM
+----------------------------------------------
+
+    | Use case             | ORM | Raw SQL |
+    | -------------------- | --- | ------- |
+    | Simple CRUD          | ✅  | ❌      |
+    | Complex joins        | ⚠️  | ✅      |
+    | JSONB heavy queries  | ⚠️  | ✅      |
+    | Performance-critical | ⚠️  | ✅      |
+    | Upserts              | ❌  | ✅      |
+
+
+----------------------------------------------
+🚀 14️⃣ Pattern for your project
+----------------------------------------------
+
+Use raw SQL for:
+
+    Booking creation (with locking)
+    Reporting queries
+    JSON filtering
+
+Example service:
+
+    from django.db import connection, transaction
+
+    def create_booking(user_id, campsite_id, date):
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+
+                cursor.execute(
+                    """
+                    SELECT id FROM camps_campsite
+                    WHERE id = %s
+                    FOR UPDATE
+                    """,
+                    [campsite_id]
+                )
+
+                cursor.execute(
+                    """
+                    INSERT INTO camps_booking (user_id, campsite_id, date)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (campsite_id, date)
+                    DO NOTHING
+                    RETURNING id
+                    """,
+                    [user_id, campsite_id, date]
+                )
+
+                result = cursor.fetchone()
+
+                if not result:
+                    raise Exception("Already booked")
+
+                return result[0]
+
+----------------------------------------------
+🧠 Final takeaway
+----------------------------------------------
+
+    connection.cursor() = full SQL control
+    Use %s → always parameterized
+    Combine with atomic() → safe transactions
+    Use when ORM becomes limiting
+
+👉 For your system:
+
+ORM for simplicity + Raw SQL for power = optimal architecture

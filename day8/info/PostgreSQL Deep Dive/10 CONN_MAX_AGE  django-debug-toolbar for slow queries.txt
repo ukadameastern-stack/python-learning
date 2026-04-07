@@ -1,0 +1,236 @@
+Both CONN_MAX_AGE and query profiling (via django-debug-toolbar) 
+are foundational for diagnosing and improving DB performance 
+with PostgreSQL in Django.
+
+--------------------------------------------
+🧠 1️⃣ CONN_MAX_AGE — persistent connections
+--------------------------------------------
+
+By default, Django opens/closes a DB connection per request.
+
+Without it (default = 0)
+
+    Request → open connection → query → close connection
+
+👉 High overhead under load
+
+Enable persistent connections
+--------------------------------------------
+
+    # settings.py
+    DATABASES = {
+        "default": {
+            ...
+            "CONN_MAX_AGE": 60,   # seconds
+        }
+    }
+
+What it does
+Connection reused for 60 seconds across requests
+
+👉 Benefits:
+
+    Reduced connection overhead
+    Lower latency
+    Better throughput
+
+Recommended values
+--------------------------------------------
+
+    | Environment  | Value |
+    | ------------ | ----- |
+    | Development  | 0     |
+    | Small app    | 60    |
+    | Medium app   | 300   |
+    | High traffic | 600+  |
+
+
+⚠️ Important behavior
+
+    Connection is reused per worker/process
+    Not a true pool (unlike psycopg_pool)
+    Idle connections stay open
+
+⚠️ When NOT to rely only on CONN_MAX_AGE
+
+    High concurrency apps
+    Many parallel users
+    Heavy DB workload
+
+👉 Use:
+
+    psycopg_pool or PgBouncer
+
+-------------------------------------------------------    
+🔍 2️⃣ Debugging slow queries with django-debug-toolbar
+-------------------------------------------------------
+
+Install:
+
+    pip install django-debug-toolbar
+
+Setup
+
+    # settings.py
+    INSTALLED_APPS = [
+        ...
+        "debug_toolbar",
+    ]
+
+    MIDDLEWARE = [
+        ...
+        "debug_toolbar.middleware.DebugToolbarMiddleware",
+    ]
+
+    INTERNAL_IPS = ["127.0.0.1"]
+
+URLs
+
+    # urls.py
+    import debug_toolbar
+    from django.urls import path, include
+
+    urlpatterns = [
+        path("__debug__/", include(debug_toolbar.urls)),
+    ]
+
+-------------------------------------------------------    
+📊 3️⃣ What it shows
+-------------------------------------------------------
+
+Open your app → right-side panel:
+
+SQL Panel shows:
+
+    All queries per request
+    Execution time
+    Duplicate queries
+    Raw SQL
+
+Example output
+
+    SELECT * FROM camps_booking WHERE campsite_id = 1  (3.2 ms)
+    SELECT * FROM camps_booking WHERE campsite_id = 1  (3.1 ms)
+
+👉 Immediately reveals:
+
+    N+1 query problem
+
+-------------------------------------------------------
+🚩 4️⃣ Common issues you’ll detect
+-------------------------------------------------------
+
+❌ N+1 queries
+
+    for booking in bookings:
+        print(booking.campsite.name)
+
+👉 Fix:
+
+    Booking.objects.select_related("campsite")
+
+❌ Missing indexes
+
+Slow query:
+
+    WHERE metadata @> '{"wifi": true}'
+
+👉 Fix:
+
+    Add GIN index
+
+❌ Repeated queries
+
+    Same query executed multiple times
+    👉 Cache or refactor
+
+❌ Slow joins
+
+    👉 Optimize with:
+
+        select_related
+        prefetch_related
+
+-------------------------------------------------------        
+⚡ 5️⃣ Advanced: Query inspection
+-------------------------------------------------------
+
+Click a query → see:
+
+    SQL
+    Execution time
+    Stack trace (where triggered)
+
+-------------------------------------------------------    
+🚀 6️⃣ Combine with PostgreSQL EXPLAIN
+-------------------------------------------------------
+
+Take query from toolbar:
+
+    EXPLAIN ANALYZE
+    SELECT ...
+
+👉 Shows:
+
+    Seq Scan vs Index Scan
+    Cost
+    Rows processed
+
+-------------------------------------------------------    
+🧱 7️⃣ Best workflow (practical)
+-------------------------------------------------------
+
+    1. Enable debug toolbar
+    2. Hit API endpoint
+    3. Open SQL panel
+    4. Identify:
+    - slow queries
+    - duplicates
+    5. Fix with:
+    - indexes
+    - select_related
+    - raw SQL if needed
+
+-------------------------------------------------------
+⚠️ 8️⃣ Production caution
+-------------------------------------------------------
+
+    Never enable debug toolbar in production
+    It exposes sensitive info
+
+-------------------------------------------------------
+🧩 9️⃣ CONN_MAX_AGE vs pooling
+-------------------------------------------------------
+
+    | Feature | CONN_MAX_AGE          | psycopg_pool |
+    | ------- | --------------------- | ------------ |
+    | Type    | Persistent connection | True pooling |
+    | Control | Low                   | High         |
+    | Scaling | Limited               | Excellent    |
+    | Setup   | Easy                  | Moderate     |
+
+
+-------------------------------------------------------
+🧠 Final takeaway
+-------------------------------------------------------
+
+    CONN_MAX_AGE → quick win for connection reuse
+    Debug Toolbar → visibility into query performance
+
+👉 Together:
+
+    Measure → Optimize → Scale
+
+💡 For your booking system
+-------------------------------------------------------
+
+Start with:
+
+    CONN_MAX_AGE = 60
+
+Then:
+
+    Use debug toolbar
+    Add indexes (GIN for JSON)
+    Optimize queries
+    Move to pooling when needed
