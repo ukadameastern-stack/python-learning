@@ -1,0 +1,239 @@
+9) Production compose: web app + task worker + database + cache; 
+====================================================================
+
+A production-grade docker-compose.yml typically separates concerns into web (API), 
+worker (background jobs), database, and cache/message broker.
+The goal is isolation, scalability, and predictable runtime behavior.
+
+Below is a clean, production-oriented pattern (Django + Gunicorn + Celery + Postgres + Redis).
+
+-------------------------------------------------
+Architecture Overview
+-------------------------------------------------
+
+    web → handles HTTP (Gunicorn)
+    worker → async jobs (Celery/RQ)
+    db → PostgreSQL (persistent)
+    cache → Redis (broker + cache)
+
+All communicate over an internal Docker network.
+
+-------------------------------------------------
+Production docker-compose.yml
+-------------------------------------------------
+
+    version: "3.9"
+
+    services:
+    web:
+        build: .
+        command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+        ports:
+        - "8000:8000"
+        env_file:
+        - .env
+        depends_on:
+        - db
+        - cache
+        restart: always
+
+    worker:
+        build: .
+        command: celery -A config worker -l info
+        env_file:
+        - .env
+        depends_on:
+        - db
+        - cache
+        restart: always
+
+    db:
+        image: postgres:15
+        environment:
+        POSTGRES_DB: ${POSTGRES_DB}
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        volumes:
+        - postgres_data:/var/lib/postgresql/data
+        restart: always
+
+    cache:
+        image: redis:7
+        restart: always
+
+    volumes:
+    postgres_data:
+
+-------------------------------------------------  
+Key Design Decisions
+-------------------------------------------------
+
+1) Separate web and worker
+-----------------------------
+
+    Web handles requests → fast response
+    Worker handles background jobs → no blocking
+
+Example workloads:
+
+    Emails
+    Webhooks
+    Report generation
+
+2) Shared Image, Different Commands
+-------------------------------------
+
+    web:
+    command: gunicorn ...
+
+    worker:
+    command: celery ...
+
+Same codebase
+Different runtime roles
+
+3) Redis as Cache + Broker
+----------------------------
+
+    Used by:
+        Celery (message queue)
+        Django cache layer
+    Fast, in-memory
+    
+4) Persistent Database (Named Volume)
+--------------------------------------
+
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
+
+Data survives container restarts
+Critical for production
+
+5) Environment Configuration
+-----------------------------
+
+    env_file:
+    - .env
+
+Typical .env:
+
+    DEBUG=0
+    SECRET_KEY=your-secret
+    DATABASE_URL=postgres://user:pass@db:5432/mydb
+    REDIS_URL=redis://cache:6379/0
+
+6) Restart Policy
+-------------------
+
+        restart: always
+        
+    Containers auto-restart on failure
+    Essential for uptime
+
+-------------------------------------------------    
+Important Production Improvements
+-------------------------------------------------
+
+1) Add Nginx (Reverse Proxy)
+------------------------------
+Handles:
+
+    SSL termination
+    Static files
+    Load balancing
+
+        nginx:
+        image: nginx:alpine
+        ports:
+            - "80:80"
+        depends_on:
+            - web
+
+2) Healthchecks (critical)
+----------------------------
+
+    healthcheck:
+    test: ["CMD", "pg_isready", "-U", "postgres"]
+    interval: 10s
+    retries: 5
+
+3) No Bind Mounts in Production
+---------------------------------
+
+❌ Avoid:
+
+    - .:/app
+
+✔ Use baked image:
+
+    Immutable
+    Predictable
+
+4) Use Gunicorn (not runserver)
+--------------------------------
+
+        gunicorn config.wsgi:application
+
+    Multi-worker
+    Production-ready
+
+5) Scale Workers Independently
+--------------------------------
+
+    docker compose up --scale worker=3
+
+Horizontal scaling for background jobs
+
+-------------------------------------------------
+Networking Behavior
+-------------------------------------------------
+
+Default network created automatically
+Services resolve via name:
+
+    DB_HOST = "db"
+    REDIS_HOST = "cache"
+
+No need for localhost
+
+-------------------------------------------------
+Deployment Workflow
+-------------------------------------------------
+
+    # Build images
+    docker compose build
+
+    # Start services
+    docker compose up -d
+
+    # Check logs
+    docker compose logs -f web
+
+    # Scale workers
+    docker compose up -d --scale worker=3
+
+-------------------------------------------------
+Common Pitfalls
+-------------------------------------------------
+
+    ❌ Using localhost for DB/Redis
+    ❌ Not persisting DB data
+    ❌ Using Django runserver in production
+    ❌ No retry logic for DB connection
+    ❌ Missing healthchecks
+
+-------------------------------------------------
+Mental Model
+-------------------------------------------------
+
+    web → synchronous layer
+    worker → async processing
+    db → durable state
+    cache → speed + messaging
+
+-------------------------------------------------
+Bottom Line
+-------------------------------------------------
+
+A production Compose setup isolates responsibilities, persists critical data, 
+and enables independent scaling—while keeping deployment simple and reproducible.

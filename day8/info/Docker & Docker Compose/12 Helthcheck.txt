@@ -1,0 +1,186 @@
+12) healthcheck in compose for postgres and redis
+===================================================
+
+Healthchecks in Compose let Docker verify service readiness/health, not just “container started”. This is critical for Postgres and Redis, which may take time to become ready.
+
+Why Healthchecks Matter
+depends_on → only ensures startup order ❌
+healthcheck → ensures service is actually usable ✔
+
+Without it:
+
+Your app may try DB connection too early → crashes/retries
+
+---------------------------------------------
+1) Postgres Healthcheck
+---------------------------------------------
+
+Use built-in pg_isready:
+
+    services:
+    db:
+        image: postgres:15
+        environment:
+        POSTGRES_DB: mydb
+        POSTGRES_USER: user
+        POSTGRES_PASSWORD: secret
+        volumes:
+        - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 10s
+
+What it does
+
+        pg_isready -U user -d mydb
+
+    Checks if Postgres is accepting connections
+Returns success only when DB is ready
+
+---------------------------------------------
+2) Redis Healthcheck
+---------------------------------------------
+
+Use redis-cli ping:
+
+    services:
+    cache:
+        image: redis:7
+        healthcheck:
+        test: ["CMD", "redis-cli", "ping"]
+        interval: 10s
+        timeout: 3s
+        retries: 5
+
+Expected response
+
+        PONG
+
+    If Redis responds → healthy
+    Otherwise → unhealthy
+
+-----------------------------------------------------
+3) Combine with depends_on (Compose v3.9+ behavior)
+-----------------------------------------------------
+
+Basic:
+
+    depends_on:
+    - db
+    - cache
+
+But this still doesn’t wait for health.
+
+Better (if using newer Compose with condition support)
+
+    depends_on:
+    db:
+        condition: service_healthy
+    cache:
+        condition: service_healthy
+
+⚠️ Note:
+
+    Works in newer Compose implementations
+    Not supported in older versions
+
+-----------------------------------------------------
+4) Full Example
+-----------------------------------------------------
+
+    version: "3.9"
+
+    services:
+    web:
+        build: .
+        depends_on:
+        db:
+            condition: service_healthy
+        cache:
+            condition: service_healthy
+
+    db:
+        image: postgres:15
+        environment:
+        POSTGRES_DB: mydb
+        POSTGRES_USER: user
+        POSTGRES_PASSWORD: secret
+        healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+    cache:
+        image: redis:7
+        healthcheck:
+        test: ["CMD", "redis-cli", "ping"]
+        interval: 10s
+        timeout: 3s
+        retries: 5
+
+-----------------------------------------------------      
+5) Key Parameters Explained
+-----------------------------------------------------
+
+    | Field          | Meaning                     |
+    | -------------- | --------------------------- |
+    | `test`         | Command to check health     |
+    | `interval`     | How often to run check      |
+    | `timeout`      | Max time per check          |
+    | `retries`      | Fail count before unhealthy |
+    | `start_period` | Grace period before checks  |
+
+-----------------------------------------------------
+6) Operational Behavior
+-----------------------------------------------------
+
+    Container starts → starting
+    Healthcheck runs periodically
+    If success → healthy
+    If fails repeatedly → unhealthy
+
+Check status:
+
+    docker ps
+
+-----------------------------------------------------
+7) Important Caveat
+-----------------------------------------------------
+
+Even with healthchecks:
+
+    Your app should still implement retry logic
+
+Because:
+
+    Network delays
+    Restart scenarios
+    Partial failures
+
+-----------------------------------------------------
+8) Common Mistakes
+-----------------------------------------------------
+
+    ❌ Using depends_on alone
+    ❌ Wrong DB credentials in healthcheck
+    ❌ No start_period → premature failures
+    ❌ Assuming healthcheck blocks app start (it doesn’t always)
+
+-----------------------------------------------------
+Mental Model
+-----------------------------------------------------
+
+    depends_on → order
+    healthcheck → readiness
+    app retries → resilience
+
+-----------------------------------------------------
+Bottom Line
+-----------------------------------------------------
+
+Healthchecks ensure Postgres and Redis are actually ready before your app depends on them, 
+reducing startup race conditions and improving reliability.

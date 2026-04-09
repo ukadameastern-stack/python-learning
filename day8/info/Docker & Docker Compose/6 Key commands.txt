@@ -1,0 +1,178 @@
+6) Key commands: 
+    docker build / 
+    docker run / 
+    docker exec -it / 
+    docker logs / 
+    docker ps / 
+    docker images
+===========================================================================
+
+----------------------------------------------------
+1. docker build
+----------------------------------------------------
+
+Build an image from a Dockerfile
+
+    docker build -t myapp:latest .
+
+Key flags:
+
+    -t → tag (name:tag)
+    -f → specify Dockerfile
+    --no-cache → ignore cache (force rebuild)
+
+Use case:
+
+    Create a reproducible image from your source + Dockerfile
+
+----------------------------------------------------
+2. docker run
+----------------------------------------------------
+
+Create + start a container from an image
+
+    docker run -d -p 8000:8000 --name mycontainer myapp:latest
+
+Key flags:
+
+    -d → detached (background)
+    -p host:container → port mapping
+    --name → assign container name
+    -e → environment variables
+    --env-file → load .env
+    -v → volume mount
+
+Use case:
+
+    Start your app locally or in deployment
+
+----------------------------------------------------
+3. docker exec -it
+----------------------------------------------------
+
+Run a command inside a running container (interactive)
+
+    docker exec -it mycontainer bash
+
+Breakdown:
+
+    -i → interactive
+    -t → terminal (TTY)
+
+Use case:
+
+    Debugging
+    Running migrations
+    Inspecting container state
+
+----------------------------------------------------
+4. docker logs
+----------------------------------------------------
+
+View container logs (stdout/stderr)
+
+    docker logs mycontainer
+
+Useful flags:
+
+    -f → follow logs (like tail -f)
+    --tail 100 → last 100 lines
+    docker logs -f mycontainer
+
+Use case:
+
+    Debug crashes
+    Monitor runtime behavior
+
+----------------------------------------------------
+5. docker ps
+----------------------------------------------------
+
+List running containers
+
+        docker ps
+
+Useful flags:
+
+-a → include stopped containers
+
+    docker ps -a
+
+Output includes:
+
+    Container ID
+    Image
+    Status
+    Ports
+    Names
+
+----------------------------------------------------
+6. docker images
+----------------------------------------------------
+
+List available images locally
+
+    docker images
+
+Shows:
+
+    Repository
+    Tag
+    Image ID
+    Size
+
+----------------------------------------------------
+Typical Workflow
+----------------------------------------------------
+
+    # 1. Build image
+    docker build -t myapp .
+
+    # 2. Run container
+    docker run -d -p 8000:8000 --name myapp-container myapp
+
+    # 3. Check running containers
+    docker ps
+
+    # 4. View logs
+    docker logs -f myapp-container
+
+    # 5. Enter container
+    docker exec -it myapp-container bash
+
+----------------------------------------------------
+Mental Model
+----------------------------------------------------
+
+| Command | Role                      |
+| ------- | ------------------------- |
+| build   | Create image              |
+| run     | Start container           |
+| ps      | See containers            |
+| logs    | Inspect output            |
+| exec    | Interact inside container |
+| images  | See available images      |
+
+----------------------------------------------------
+Common Pitfalls
+----------------------------------------------------
+
+    Confusing image vs container
+
+        Image = blueprint
+        Container = running instance
+
+    Forgetting port mapping:
+        
+        docker run myapp   # ❌ not accessible
+
+    Using exec on stopped container:
+
+        docker exec -it mycontainer bash  # ❌ fails if not running
+
+----------------------------------------------------
+Bottom Line
+----------------------------------------------------
+
+    These commands form the minimum operational toolkit for building, running, inspecting, 
+    and debugging Dockerized applications.

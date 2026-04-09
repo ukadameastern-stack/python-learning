@@ -1,0 +1,132 @@
+1) Why Docker: identical environments / no 'works on my machine'; 
+2) Dockerfile: FROM / WORKDIR / COPY / RUN / ENV / EXPOSE / CMD / ENTRYPOINT; 
+3) Layer caching: why deps install before source copy; 
+4) Multi-stage builds: build stage + lean final stage; 
+5) .dockerignore: exclude .git / __pycache__ / .env / *.pyc; 
+6) Key commands: docker build / docker run / docker exec -it / docker logs / docker ps / docker images
+
+7) docker-compose.yml: services / volumes / networks / depends_on / environment / ports; 
+8) Port mapping / named volumes vs bind mounts; 
+9) Production compose: web app + task worker + database + cache; 
+10) Gunicorn: --workers (2×CPU+1) / --bind 0.0.0.0:8000 / --timeout; 
+11) WhiteNoise: WhiteNoiseMiddleware for static files without nginx; 
+12) healthcheck in compose for postgres and redis
+
+
+https://www.youtube.com/watch?v=1v3lqIITRJA
+
+=======================================================================================================
+1) Why Docker: identical environments / no 'works on my machine'
+=================================================================
+
+Docker addresses the classic “works on my machine” problem by enforcing environment parity 
+across development, testing, and production. Here’s the precise reasoning:
+
+--------------------------------------------
+1. Identical Environments via Containers
+--------------------------------------------
+
+A Docker container packages:
+
+    Application code
+    Runtime (e.g., Python, Node)
+    System libraries
+    OS-level dependencies
+
+All defined declaratively in a Dockerfile.
+
+So instead of relying on:
+
+    Local OS differences (Ubuntu vs Mac vs Windows)
+    Different library versions
+    Missing system dependencies
+
+You get a bit-for-bit reproducible environment.
+
+--------------------------------------------
+2. Elimination of Environment Drift
+--------------------------------------------
+
+Without Docker:
+
+    Dev installs libA v1.2
+    QA has libA v1.3
+    Production has libA v1.1
+
+→ Subtle bugs, inconsistent behavior.
+
+With Docker:
+
+    Image is immutable
+    Same image runs everywhere
+
+→ No drift, no surprises
+
+--------------------------------------------
+3. Dependency Isolation
+--------------------------------------------
+
+Docker isolates applications at the OS level:
+
+    Each container has its own filesystem, libraries, and processes
+    No conflicts between projects
+
+Example:
+
+    Project A → Python 3.8
+    Project B → Python 3.12
+
+No clashes.
+
+--------------------------------------------
+4. Reproducible Builds
+--------------------------------------------
+
+Using a Dockerfile:
+
+    FROM python:3.11
+    COPY requirements.txt .
+    RUN pip install -r requirements.txt
+    COPY . .
+
+This ensures:
+
+    Same base image
+    Same dependency installation steps
+    Same build process
+
+Anyone running docker build gets the same result.
+
+--------------------------------------------
+5. Consistent Deployment Pipeline
+--------------------------------------------
+
+Docker integrates cleanly with CI/CD:
+
+    Build image once
+    Test it
+    Deploy the exact same image
+
+No reconfiguration per environment.
+
+--------------------------------------------
+6. Infrastructure Abstraction
+--------------------------------------------
+
+Docker abstracts underlying systems:
+
+    Runs the same on local machine, cloud VM, or Kubernetes cluster
+
+You don’t care about:
+
+    Host OS differences
+    Machine-specific configs
+
+--------------------------------------------    
+Bottom Line
+--------------------------------------------
+
+Docker solves “works on my machine” by ensuring:
+
+    The environment is no longer implicit (machine-dependent), 
+    but explicit and version-controlled (image-based).

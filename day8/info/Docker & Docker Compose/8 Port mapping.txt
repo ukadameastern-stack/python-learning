@@ -1,0 +1,213 @@
+8) Port mapping / named volumes vs bind mounts;
+===================================================
+
+Here are the two concepts you asked about—port mapping and named volumes vs 
+bind mounts—explained with operational clarity and when to use each.
+
+-----------------------------------------------------------------
+1) Port Mapping (-p / ports)
+-----------------------------------------------------------------
+
+Expose a container’s internal port to the host machine
+
+Syntax
+
+    docker run -p <host_port>:<container_port> image
+
+Example
+
+        docker run -p 8000:8000 myapp
+
+    App runs inside container on 8000
+    Accessible on host via localhost:8000
+
+-----------------------------------------------------------------
+How it works (networking model)
+-----------------------------------------------------------------
+
+    Container has its own isolated network namespace
+    Port mapping creates a NAT rule
+
+    Traffic flow:
+        
+        Browser → localhost:8000 → Docker → container:8000
+
+In docker-compose
+-------------------
+
+    ports:
+    - "8000:8000"
+
+-----------------------------------------------------------------    
+Common Patterns
+-----------------------------------------------------------------
+
+Bind to specific interface
+
+        docker run -p 127.0.0.1:8000:8000 myapp
+
+    Only accessible locally (more secure)
+
+Random host port
+
+        docker run -p 8000 myapp
+
+    Docker assigns a random host port
+
+Pitfalls
+
+    ❌ Forgetting to expose:
+
+        docker run myapp   # not accessible
+
+    ❌ Using localhost inside container:
+
+        Inside container, localhost ≠ host machine
+
+-----------------------------------------------------------------        
+Mental Model
+-----------------------------------------------------------------        
+
+Port mapping = “make container service reachable from outside”
+
+
+-----------------------------------------------------------------
+2) Storage: Named Volumes vs Bind Mounts
+-----------------------------------------------------------------
+
+    Both solve: persisting data outside container lifecycle
+
+A) Named Volumes
+-----------------------------------------------------------------
+
+Managed by Docker
+
+    Example
+        
+            docker run -v postgres_data:/var/lib/postgresql/data postgres
+
+    In Compose
+
+        volumes:
+        postgres_data:
+
+        services:
+        db:
+            volumes:
+            - postgres_data:/var/lib/postgresql/data
+
+Characteristics
+--------------------
+
+    Stored in Docker’s internal directory
+    Managed lifecycle
+    Portable across environments
+    Not tied to your project folder
+
+Best Use Cases
+-------------------
+    Databases (Postgres, MySQL)
+    Redis persistence
+    Production data
+
+B) Bind Mounts
+-----------------------------------------------------------------
+
+Map host directory → container
+
+Example
+
+    docker run -v $(pwd):/app myapp
+
+In Compose
+
+    volumes:
+    - .:/app
+
+Characteristics
+----------------
+
+    Direct link to host filesystem
+    Real-time sync
+    Depends on host path
+
+Best Use Cases
+----------------
+
+    Development (live code reload)
+    Debugging
+    Accessing logs locally
+
+Key Differences
+-----------------------------------------------------------------
+
+    | Feature      | Named Volume        | Bind Mount            |
+    | ------------ | ------------------- | --------------------- |
+    | Managed by   | Docker              | You (host filesystem) |
+    | Portability  | High                | Low                   |
+    | Performance  | Better (esp. Linux) | Can be slower         |
+    | Use case     | Production data     | Development           |
+    | Path control | Abstract            | Explicit host path    |
+
+-----------------------------------------------------------------
+Real-World Example (Django)
+-----------------------------------------------------------------
+
+    services:
+    web:
+        build: .
+        volumes:
+        - .:/app   # bind mount (dev)
+
+    db:
+        image: postgres:15
+        volumes:
+        - postgres_data:/var/lib/postgresql/data  # named volume
+
+    volumes:
+    postgres_data:
+
+-----------------------------------------------------------------  
+Pitfalls
+-----------------------------------------------------------------
+
+Bind Mount Issues
+
+    ❌ Overwrites container files
+    ❌ OS-specific issues (Mac/Windows performance)
+    ❌ Missing host directory → unexpected behavior
+
+Named Volume Issues
+
+    ❌ Harder to inspect manually
+        
+        docker volume inspect postgres_data
+
+-----------------------------------------------------------------
+When to Use What
+-----------------------------------------------------------------
+
+Use Named Volumes when:
+
+    You need persistence
+    You’re in production
+    Data integrity matters
+
+Use Bind Mounts when:
+
+    You’re developing locally
+    You want live reload
+    You need direct file access
+
+Combined Mental Model
+
+    Port mapping → “How do I access the app?”
+    Volumes → “Where does the data live?”
+
+-----------------------------------------------------------------
+Bottom Line
+-----------------------------------------------------------------
+
+    Port mapping exposes your container to the outside world
+    Named volumes persist data safely for production
+    Bind mounts sync files for fast development workflows

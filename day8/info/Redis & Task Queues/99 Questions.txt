@@ -27,3 +27,5 @@
 
 7. Which tool we can use for PostregSQL? dbeaver?
 
+PGADMIN
+

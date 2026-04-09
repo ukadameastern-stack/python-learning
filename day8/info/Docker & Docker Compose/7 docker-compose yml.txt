@@ -1,0 +1,213 @@
+7) docker-compose.yml: 
+services / 
+volumes / 
+networks / 
+depends_on / 
+environment / 
+ports; 
+==========================================================
+
+docker-compose.yml defines a multi-container application topology declaratively. 
+It’s the standard way to wire services like Django + Postgres + Redis with consistent networking, 
+storage, and configuration.
+
+Below is a precise breakdown of the keys you listed.
+
+----------------------------------------------------------
+1. services
+----------------------------------------------------------
+
+Core building blocks (containers)
+
+    services:
+    web:
+        build: .
+    db:
+        image: postgres:15
+    redis:
+        image: redis:7
+    Each service = one container (or scaled replicas)
+    Can use:
+    build: (local Dockerfile)
+    image: (prebuilt image)
+
+----------------------------------------------------------
+2. ports
+----------------------------------------------------------
+
+Expose container ports to host
+
+    services:
+    web:
+        ports:
+        - "8000:8000"
+
+Format:
+
+    host_port:container_port
+    Access app via localhost:8000
+    Without this → service is internal only
+
+----------------------------------------------------------    
+3. environment
+----------------------------------------------------------
+
+Set environment variables
+
+    services:
+    db:
+        environment:
+        POSTGRES_DB: mydb
+        POSTGRES_USER: user
+        POSTGRES_PASSWORD: secret
+
+Alternative (recommended for secrets):
+
+    env_file:
+    - .env
+
+----------------------------------------------------------
+4. depends_on
+----------------------------------------------------------
+
+Startup ordering (not readiness)
+
+    services:
+    web:
+        depends_on:
+        - db
+        - redis
+
+Ensures db and redis start before web
+❗ Does NOT guarantee DB is ready to accept connections
+
+Real-world fix:
+
+    Use retry logic or wait-for-it script
+
+----------------------------------------------------------
+5. volumes
+----------------------------------------------------------
+
+Persistent storage / data sharing
+
+Named volume:
+
+    volumes:
+    postgres_data:
+
+    services:
+    db:
+        volumes:
+        - postgres_data:/var/lib/postgresql/data
+
+Data persists even if container is removed
+
+Bind mount (dev use):
+-----------------------
+
+    services:
+    web:
+        volumes:
+        - .:/app
+    Sync local code → container
+    Great for live reload
+
+----------------------------------------------------------    
+6. networks
+----------------------------------------------------------
+
+Custom communication layer between services
+
+    networks:
+    app_network:
+
+    services:
+    web:
+        networks:
+        - app_network
+    db:
+        networks:
+        - app_network
+
+Services can reach each other using service names as hostnames
+
+Example:
+
+    DB_HOST = "db"
+    REDIS_HOST = "redis"
+
+----------------------------------------------------------    
+Complete Example (Django + Postgres + Redis)
+----------------------------------------------------------
+
+version: "3.9"
+
+    services:
+    web:
+        build: .
+        ports:
+        - "8000:8000"
+        volumes:
+        - .:/app
+        environment:
+        DEBUG: "1"
+        depends_on:
+        - db
+        - redis
+
+    db:
+        image: postgres:15
+        environment:
+        POSTGRES_DB: mydb
+        POSTGRES_USER: user
+        POSTGRES_PASSWORD: secret
+        volumes:
+        - postgres_data:/var/lib/postgresql/data
+
+    redis:
+        image: redis:7
+
+    volumes:
+    postgres_data:
+
+----------------------------------------------------------
+How to Run
+----------------------------------------------------------
+
+    docker compose up --build
+
+Detached:
+
+    docker compose up -d
+
+    Stop:
+
+    docker compose down
+
+----------------------------------------------------------    
+Mental Model
+----------------------------------------------------------
+
+    services → what runs
+    ports → what’s exposed
+    environment → configuration
+    depends_on → startup order
+    volumes → persistence
+    networks → communication
+
+----------------------------------------------------------
+Common Pitfalls
+----------------------------------------------------------
+
+    ❌ Assuming depends_on = DB ready
+    ❌ Not using volumes → DB data lost
+    ❌ Hardcoding localhost (use service name instead)
+    ❌ Committing .env with secrets
+
+----------------------------------------------------------
+Bottom Line
+----------------------------------------------------------
+
+    docker-compose.yml orchestrates multiple containers as a single application 
+    with shared networking, persistent storage, and environment-driven configuration.

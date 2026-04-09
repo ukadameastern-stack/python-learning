@@ -1,0 +1,173 @@
+4) Multi-stage builds: build stage + lean final stage; 
+=========================================================
+
+Multi-stage builds let you separate build-time concerns from runtime concerns, 
+producing a smaller, cleaner, and more secure final image.
+
+    Idea: Use a heavy “builder” stage to compile/install, 
+    then copy only the artifacts into a lean runtime stage.
+
+-------------------------------------------------
+Why this matters
+-------------------------------------------------
+
+Without multi-stage builds:
+
+    You ship compilers (gcc), headers, build tools
+    Larger image size
+    Bigger attack surface
+    Slower pulls/deployments
+
+With multi-stage:
+
+    Only runtime essentials go to production
+    No dev/build tooling in final image
+
+-------------------------------------------------    
+Basic Structure
+-------------------------------------------------
+
+    # Stage 1: Build
+    FROM python:3.11 as builder
+
+    WORKDIR /app
+    COPY requirements.txt .
+    RUN pip install --user -r requirements.txt
+
+    COPY . .
+
+    # Stage 2: Runtime (lean)
+    FROM python:3.11-slim
+
+    WORKDIR /app
+
+    # Copy only installed deps + app
+    COPY --from=builder /root/.local /root/.local
+    COPY --from=builder /app /app
+
+    ENV PATH=/root/.local/bin:$PATH
+
+    CMD ["python", "app.py"]
+
+-------------------------------------------------
+What’s happening
+-------------------------------------------------
+
+Stage 1 (builder)
+
+    Full environment
+    Installs dependencies
+    Can include compilers, dev libraries
+    Produces artifacts (binaries, installed packages)
+
+Stage 2 (final)
+
+    Starts from a minimal base (-slim)
+    Copies only:
+        Built dependencies
+        Application code
+        No build tools
+
+-------------------------------------------------
+Key Instruction
+-------------------------------------------------
+
+COPY --from=builder
+
+        COPY --from=builder /path/in/builder /path/in/final
+        
+    Pulls artifacts from previous stage
+    Avoids reinstalling everything
+
+-------------------------------------------------
+Example: Python with compiled deps (psycopg2)
+-------------------------------------------------
+
+    # Builder
+    FROM python:3.11 as builder
+    WORKDIR /app
+
+    RUN apt-get update && apt-get install -y build-essential libpq-dev
+
+    COPY requirements.txt .
+    RUN pip install --user -r requirements.txt
+
+    # Final
+    FROM python:3.11-slim
+    WORKDIR /app
+
+    RUN apt-get update && apt-get install -y libpq5
+
+    COPY --from=builder /root/.local /root/.local
+    ENV PATH=/root/.local/bin:$PATH
+
+    COPY . .
+
+    CMD ["gunicorn", "app:app"]
+
+-------------------------------------------------    
+Benefits
+-------------------------------------------------
+
+1. Smaller Image Size
+
+    No compilers, caches, or temp files
+    Often 2–5x smaller
+
+2. Better Security
+
+    Fewer packages → fewer vulnerabilities
+
+3. Faster Deployments
+
+    Smaller images → faster pull/start
+
+4. Cleaner Separation
+
+    Build logic vs runtime logic clearly separated
+
+-------------------------------------------------
+Mental Model
+-------------------------------------------------
+
+    Builder stage = factory
+    Final stage = packaged product
+
+You don’t ship the factory to the customer.
+
+-------------------------------------------------
+Advanced Patterns
+-------------------------------------------------
+
+1. Multiple build stages
+
+    FROM node as frontend-builder
+    FROM python as backend-builder
+    FROM nginx as final
+
+2. Named stages
+
+    FROM node as build
+    FROM nginx as production
+
+3. Distroless images (ultra minimal)
+
+    FROM gcr.io/distroless/python3
+
+-------------------------------------------------
+Common Mistakes
+-------------------------------------------------
+
+❌ Copying entire filesystem:
+
+    COPY --from=builder / /
+
+❌ Installing deps again in final stage
+❌ Forgetting runtime libs (e.g., libpq5)
+
+-------------------------------------------------
+Bottom Line
+-------------------------------------------------
+
+    Multi-stage builds eliminate unnecessary build-time baggage by 
+    copying only what you need into a minimal runtime image.

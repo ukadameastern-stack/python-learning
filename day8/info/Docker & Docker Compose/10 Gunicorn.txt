@@ -1,0 +1,195 @@
+10) Gunicorn: --workers (2×CPU+1) / --bind 0.0.0.0:8000 / --timeout; 
+========================================================================
+
+These are the core Gunicorn runtime knobs you’ll tune in production. 
+Each directly affects throughput, latency, and failure behavior.
+
+---------------------------------------------------------
+1) --workers
+---------------------------------------------------------
+
+Number of worker processes (concurrency via multi-process model)
+
+    gunicorn app:app --workers 3
+
+Rule of thumb
+
+    workers = (2 × CPU cores) + 1
+
+Why this formula?
+
+    One worker may block (I/O, DB, etc.)
+    Extra workers keep CPU utilized
+    Avoids under/over-subscription
+
+Example
+
+    | CPU Cores | Workers |
+    | --------- | ------- |
+    | 1         | 3       |
+    | 2         | 5       |
+    | 4         | 9       |
+
+Important nuances
+
+    Too few workers → underutilized CPU, low throughput
+    Too many workers → context switching overhead, memory bloat
+
+Each worker:
+
+    Is a separate process
+    Has its own memory space
+
+For Django specifically
+
+    Start with formula
+    Then tune based on:
+        Response time
+        Memory usage
+        DB load
+
+---------------------------------------------------------
+2) --bind
+---------------------------------------------------------
+
+Defines where Gunicorn listens
+
+    gunicorn app:app --bind 0.0.0.0:8000
+
+Meaning
+
+    0.0.0.0 → listen on all interfaces
+    8000 → port inside container
+
+Why important in Docker
+
+Inside a container:
+
+    127.0.0.1 = container itself only ❌
+    0.0.0.0 = accessible via Docker network ✔
+
+Flow with Docker
+
+Browser → host:8000 → Docker → container:8000 (Gunicorn)
+
+---------------------------------------------------------
+3) --timeout
+---------------------------------------------------------
+
+Max time (seconds) a worker can handle a request
+
+    gunicorn app:app --timeout 30
+
+Default
+
+    30 seconds
+
+Behavior
+
+    If request exceeds timeout:
+
+        Worker is killed
+        New worker is spawned
+
+Why it matters
+
+    Prevents:
+
+        Hanging requests
+        Stuck workers
+        Resource exhaustion
+
+
+Tuning guidelines
+
+    | Scenario                | Suggested Timeout                   |
+    | ----------------------- | ----------------------------------- |
+    | Normal APIs             | 30                                  |
+    | Slow DB / external APIs | 60–120                              |
+    | Long jobs               | ❌ Don’t increase → use worker queue |
+
+
+Critical Principle
+
+    Long-running tasks should never block Gunicorn workers
+
+Instead:
+
+    Offload to Celery / RQ worker
+
+---------------------------------------------------------
+Putting It Together
+---------------------------------------------------------
+
+    gunicorn config.wsgi:application \
+    --workers 5 \
+    --bind 0.0.0.0:8000 \
+    --timeout 30
+
+In docker-compose.yml
+
+    command: >
+    gunicorn config.wsgi:application
+    --workers 5
+    --bind 0.0.0.0:8000
+    --timeout 30
+    
+---------------------------------------------------------    
+Advanced Considerations
+---------------------------------------------------------
+
+1) CPU-bound vs I/O-bound
+
+    CPU-bound → fewer workers
+    I/O-bound → more workers (or async workers)
+
+2) Worker types (important)
+
+    Default:
+
+        sync
+
+    Alternatives:
+
+        --worker-class gevent
+        --worker-class uvicorn.workers.UvicornWorker
+
+    Use when:
+
+        High concurrency
+        Many I/O waits
+
+3) Memory impact
+
+    Each worker loads:
+
+        Django app
+        Dependencies
+
+    Example:
+
+        150MB per worker × 5 workers = 750MB
+
+---------------------------------------------------------
+Common Mistakes
+---------------------------------------------------------
+
+    ❌ Using runserver in production
+    ❌ Binding to 127.0.0.1 in Docker
+    ❌ Increasing timeout instead of fixing slow code
+    ❌ Too many workers → OOM crashes
+
+---------------------------------------------------------
+Mental Model
+---------------------------------------------------------
+
+    workers → how many requests you can process in parallel
+    bind → where the server listens
+    timeout → how long you tolerate slow requests
+
+---------------------------------------------------------    
+Bottom Line
+---------------------------------------------------------
+
+    Proper Gunicorn tuning ensures efficient CPU usage, prevents stuck workers,
+    and keeps your

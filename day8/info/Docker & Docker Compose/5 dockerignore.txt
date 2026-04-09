@@ -1,0 +1,162 @@
+5) .dockerignore: exclude .git / __pycache__ / .env / *.pyc; 
+=============================================================
+
+.dockerignore controls what gets sent to the Docker build context. 
+This directly impacts:
+
+    build speed (less data to upload to daemon)
+    cache stability (fewer unnecessary invalidations)
+    security (don’t leak secrets into images)
+
+------------------------------------------------------
+Why it matters
+------------------------------------------------------
+
+When you run:
+
+    docker build .
+
+Docker sends the entire directory (.) to the daemon except what .dockerignore excludes.
+
+If you don’t use it:
+
+    .git history (can be hundreds of MB) gets sent
+    local caches pollute builds
+    secrets may accidentally be baked into images    
+
+------------------------------------------------------
+Typical .dockerignore
+------------------------------------------------------
+
+    .git
+    __pycache__/
+    *.pyc
+    *.pyo
+    *.pyd
+    .env
+    .env.*
+    *.sqlite3
+    node_modules/
+    dist/
+    build/
+    *.log    
+
+Breakdown of your examples
+---------------------------
+
+1. .git
+
+        .git
+
+    Excludes entire Git history
+    Reduces context size drastically
+    Prevents leaking commit data
+
+2. __pycache__
+
+        __pycache__/
+
+    Python bytecode cache directories
+    Useless inside container (re-generated automatically)
+
+3. *.pyc
+
+        *.pyc
+
+    Compiled Python files
+    Platform-specific, should not be copied
+
+4. .env
+
+        .env
+        .env.*
+
+    Contains secrets (DB password, API keys)
+    Must never go into images
+
+Use runtime injection instead:
+
+    docker run --env-file .env    
+
+------------------------------------------------------
+Interaction with Layer Caching
+------------------------------------------------------
+
+This is subtle but important:
+
+    Without .dockerignore:
+
+            COPY . .
+            
+        Any change in .git or logs → cache invalidated
+        Forces rebuild of subsequent layers
+
+    With .dockerignore:
+
+        Only meaningful files affect cache
+        More stable and faster builds  
+
+------------------------------------------------------
+Security Angle
+------------------------------------------------------
+
+Bad scenario:
+
+    .env copied into image
+    Image pushed to registry
+    Secrets exposed
+
+.dockerignore prevents this class of mistakes.          
+
+------------------------------------------------------
+Best Practices
+------------------------------------------------------
+
+1. Mirror .gitignore (but not blindly)
+
+    Start from .gitignore
+    Add Docker-specific exclusions
+
+2. Be explicit with secrets
+
+    .env
+    *.pem
+    *.key
+
+3. Keep build context minimal
+
+    Smaller context = faster builds
+
+4. Combine with smart COPY
+
+Even with .dockerignore, prefer:
+
+    COPY requirements.txt .
+
+instead of copying everything early
+
+------------------------------------------------------
+Mental Model
+------------------------------------------------------
+
+    .dockerignore = what NOT to send to Docker at all
+
+While:
+
+    COPY = what to include in the image
+
+------------------------------------------------------
+Common Mistakes
+------------------------------------------------------
+
+    ❌ Forgetting .env
+    ❌ Sending .git (huge slowdown)
+    ❌ Ignoring too much (missing required files)
+    ❌ Assuming .gitignore is automatically used (it’s not)
+
+------------------------------------------------------
+Bottom Line
+------------------------------------------------------
+
+.dockerignore reduces build context, protects secrets, 
+and stabilizes caching—making your Docker builds faster, safer, and more deterministic.

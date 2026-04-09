@@ -1,0 +1,151 @@
+3) Layer caching: why deps install before source copy; 
+========================================================
+
+This is a core Docker optimization pattern. The short version:
+
+    Put dependency installation before copying your full source 
+    so Docker can reuse cached layers and avoid reinstalling deps on every build.
+
+Let’s break it down precisely.
+
+-----------------------------------------------------
+How Docker Layer Caching Works
+-----------------------------------------------------
+
+Each Dockerfile instruction creates a layer:
+
+    FROM ...
+    WORKDIR ...
+    COPY ...
+    RUN ...
+
+Docker caches each layer based on:
+
+    Instruction itself
+    Files involved in that step
+
+If nothing changes → layer is reused
+If something changes → that layer and all following layers are rebuilt
+
+
+-----------------------------------------------------
+The Problem (Wrong Order)
+-----------------------------------------------------
+
+    COPY . .
+    RUN pip install -r requirements.txt
+
+What happens:
+
+    Any code change (even 1 file) → COPY . . changes
+    That invalidates cache for:
+
+        COPY
+        RUN pip install
+
+➡️ Dependencies reinstall every time → slow builds
+
+-----------------------------------------------------
+The Correct Pattern
+-----------------------------------------------------
+
+    COPY requirements.txt .
+    RUN pip install -r requirements.txt
+
+    COPY . .
+
+Why This Works
+----------------
+
+Step-by-step:
+
+    1. Copy only dependency file
+
+            COPY requirements.txt .
+
+        Cache depends only on requirements.txt
+
+    2. Install dependencies
+
+            RUN pip install -r requirements.txt
+
+        Cached unless requirements.txt changes
+
+    3. Copy application code
+
+            COPY . .
+
+        Changes frequently, but comes after deps
+
+Result
+--------
+
+    | Change Type             | Rebuild Needed?   |
+    | ----------------------- | ----------------  |
+    | Code change             | ❌ Reinstall deps |
+    | requirements.txt change | ✅ Reinstall deps |
+
+
+Eeal Impact
+----------------
+
+Without optimization:
+
+    Build time: 2–5 minutes every change
+
+With caching:
+
+    Build time: a few seconds (only code copy)
+
+
+Mental Model
+----------------
+
+
+Think of Docker cache like this:
+
+    “Reuse everything until something changes, then rebuild from that point downward.”
+
+So you:
+
+    Put stable steps first (dependencies)
+    Put frequently changing steps later (source code)
+
+-----------------------------------------------------
+Bonus: Advanced Optimization
+-----------------------------------------------------
+
+Use lock files (more deterministic)
+
+    COPY requirements.txt requirements.lock .
+
+Node.js Example (same concept)
+
+    COPY package.json package-lock.json .
+    RUN npm install
+
+    COPY . .
+
+Avoid cache busting mistakes
+
+    ❌ Bad:
+
+        COPY . .
+        RUN pip install -r requirements.txt
+
+    ❌ Also bad:
+
+        RUN apt-get update
+
+    (Without pinning → cache unpredictability)
+
+-----------------------------------------------------
+Bottom Line
+-----------------------------------------------------
+
+Dependency layers should depend only on dependency files—not your entire codebase.
+
+That’s why:
+
+    COPY requirements.txt → then install
+    COPY . . → last    
