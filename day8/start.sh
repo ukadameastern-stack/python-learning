@@ -1,16 +1,16 @@
-#!/bin/bash
+#!/bin/sh
 
-echo "Checking Redis..."
+echo "Waiting for Postgres..."
 
-redis-cli ping > /dev/null 2>&1
+while ! nc -z postgres 5432; do
+  sleep 1
+done
 
-if [ $? -ne 0 ]; then
-    echo "Redis not running. Starting Redis..."
-    redis-server &
-    sleep 1
-else
-    echo "Redis already running"
-fi
+echo "Postgres is ready"
 
-echo "Starting Django server..."
-python manage.py runserver 8001
+python manage.py migrate
+python manage.py collectstatic --noinput
+
+gunicorn day8.wsgi:application --bind 0.0.0.0:8001
+
+exec "$@"

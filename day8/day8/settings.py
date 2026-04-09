@@ -62,6 +62,16 @@ MIDDLEWARE = [
     "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
 
+# Disable debug toolbar in production
+if not DEBUG:
+    if "debug_toolbar" in INSTALLED_APPS:
+        INSTALLED_APPS.remove("debug_toolbar")
+
+    MIDDLEWARE = [
+        m for m in MIDDLEWARE
+        if m != "debug_toolbar.middleware.DebugToolbarMiddleware"
+    ]
+
 ROOT_URLCONF = "day8.urls"
 
 TEMPLATES = [
@@ -142,7 +152,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -186,12 +198,14 @@ INTERNAL_IPS = [
     "127.0.0.1",
 ]
 
+REDIS_URL = os.environ.get("REDIS_URL")
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
 
         # Redis URI
-        "LOCATION": "redis://127.0.0.1:6379/1",
+        "LOCATION": REDIS_URL + "/1",
 
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
@@ -217,7 +231,7 @@ CACHES = {
     },
     "sessions": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/2",
+        "LOCATION": REDIS_URL + "/2",
     }
 }
 
@@ -235,8 +249,8 @@ SESSION_COOKIE_NAME = "my_session_id"
 CONSTANCE_BACKEND = "constance.backends.redis.RedisBackend"
 
 CONSTANCE_REDIS_CONNECTION = {
-    "host": "127.0.0.1",
-    "port": 6379,
+    "host": os.environ.get("REDIS_HOST"),
+    "port": os.environ.get("REDIS_PORT"),
     "db": 3,  # separate DB for config
 }
 
@@ -249,21 +263,15 @@ CONSTANCE_CONFIG = {
 
 RQ_QUEUES = {
     "default": {
-        "HOST": "127.0.0.1",
-        "PORT": 6379,
-        "DB": 4,
+        "URL": REDIS_URL + "/4",
         "DEFAULT_TIMEOUT": 300,
     },
     "emails": {
-        "HOST": "127.0.0.1",
-        "PORT": 6379,
-        "DB": 4,
+        "URL": REDIS_URL + "/4",
         "DEFAULT_TIMEOUT": 200,
     },
     "webhooks": {
-        "HOST": "127.0.0.1",
-        "PORT": 6379,
-        "DB": 4,
+        "URL": REDIS_URL + "/4",
         "DEFAULT_TIMEOUT": 600,
     },
 }

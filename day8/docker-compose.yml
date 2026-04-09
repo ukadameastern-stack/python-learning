@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    command: ./start.sh gunicorn day8.wsgi:application --bind 0.0.0.0:${PORT} --workers 3
+    ports:
+      - "${PORT:-8001}:${PORT:-8001}"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+
+  worker:
+    build: .
+    command: ./start.sh python manage.py rqworker default
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
