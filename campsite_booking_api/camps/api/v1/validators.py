@@ -61,7 +61,7 @@ class OverlapValidator(BookingValidator):
 
         # Check if adding this booking would exceed capacity
         if total_overlapping_guests + new_guests > campsite.capacity:
-            error_msg = f"Campsite '{campsite.name}' would be over capacity ({total_overlapping_guests + new_guests} guests > {campsite.capacity} capacity)"
+            error_msg = f"Campsite '{campsite.name}' would be over capacity (Existing booking guest total: {total_overlapping_guests} + New guests: {new_guests} > Capacity: {campsite.capacity})"
             logger.warning(f"Overlap validation failed: {error_msg}")
             return error_msg
 

@@ -24,7 +24,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 # RegisterAPI: CreateAPIView for user registration
 # BookingCreateAPI: CreateAPIView for booking creation with validation
 # BookingListAPI: ListAPIView for retrieving user's bookings
-from .views import CampsiteListAPI, RegisterAPI, BookingCreateAPI, BookingListAPI
+from .api.v1.views import CampsiteListAPI, RegisterAPI, BookingCreateAPI, BookingListAPI
 
 # Define URL patterns for camps application
 urlpatterns = [

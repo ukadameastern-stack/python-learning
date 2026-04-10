@@ -147,9 +147,9 @@ class BookingAPITest(APITestCase):
         response = self.client.post('/api/bookings/create/', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_booking_list_authenticated(self):
-        """Test retrieving user's bookings."""
-        # Create a booking first
+    def test_booking_overlap_capacity_check(self):
+        """Test that booking overlap validation considers total guests, not booking count."""
+        # Create first booking: 2 guests (campsite capacity is 4)
         Booking.objects.create(
             user=self.user,
             campsite=self.campsite,
@@ -158,10 +158,26 @@ class BookingAPITest(APITestCase):
             guests=2
         )
 
-        response = self.client.get('/api/bookings/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Check that we have at least one booking
-        self.assertGreater(len(response.data), 0)
+        # Second booking should be allowed: 2 more guests (total 4, equals capacity)
+        data = {
+            "campsite": self.campsite.id,
+            "start_date": "2024-12-25",
+            "end_date": "2024-12-27",
+            "guests": 2
+        }
+        response = self.client.post('/api/bookings/create/', data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Third booking should be rejected: would make total 6 guests > 4 capacity
+        data = {
+            "campsite": self.campsite.id,
+            "start_date": "2024-12-25",
+            "end_date": "2024-12-27",
+            "guests": 2
+        }
+        response = self.client.post('/api/bookings/create/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('non_field_errors', response.data)
 
     def test_booking_list_unauthenticated(self):
         """Test that unauthenticated users cannot access bookings."""

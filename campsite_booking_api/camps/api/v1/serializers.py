@@ -1,7 +1,7 @@
 import logging
 from camps.dataclasses import BookingInput
 from rest_framework import serializers
-from .models import Campsite, Booking
+from ...models import Campsite, Booking
 from django.contrib.auth.models import User
 from .validators import OverlapValidator
 

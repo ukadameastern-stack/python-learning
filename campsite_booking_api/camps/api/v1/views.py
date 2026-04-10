@@ -4,10 +4,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from rest_framework.response import Response
-from .models import Campsite
+from ...models import Campsite
 from .serializers import CampsiteSerializer, RegisterSerializer, BookingSerializer
-from .pagination import CustomPagination
-from .models import Booking
+from ...pagination import CustomPagination
+from ...models import Booking
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -34,11 +34,6 @@ class BookingListAPI(ListAPIView):
 
 
 class RegisterAPI(CreateAPIView):
-    """
-    API endpoint for user registration.
-
-    Creates new user accounts.
-    """
     serializer_class = RegisterSerializer
 
 
